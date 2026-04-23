@@ -86,7 +86,8 @@ public class WmsCargoOwnersController extends JeecgController<WmsCargoOwners, IW
 	@RequiresPermissions("goods:wms_cargo_owners:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsCargoOwners wmsCargoOwners) {
-		wmsCargoOwnersService.save(wmsCargoOwners);
+		//wmsCargoOwnersService.save(wmsCargoOwners);
+        wmsCargoOwnersService.add(wmsCargoOwners);
 		return Result.OK("添加成功！");
 	}
 	
