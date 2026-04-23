@@ -11,4 +11,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IWmsWarehousesService extends IService<WmsWarehouses> {
 
+    void add(WmsWarehouses wmsWarehouses);
+
+    void edit(WmsWarehouses wmsWarehouses);
 }

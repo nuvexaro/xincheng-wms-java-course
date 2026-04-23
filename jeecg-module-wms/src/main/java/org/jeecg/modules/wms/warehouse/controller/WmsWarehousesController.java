@@ -86,7 +86,8 @@ public class WmsWarehousesController extends JeecgController<WmsWarehouses, IWms
 	@RequiresPermissions("warehouse:wms_warehouses:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsWarehouses wmsWarehouses) {
-		wmsWarehousesService.save(wmsWarehouses);
+		//wmsWarehousesService.save(wmsWarehouses);
+        wmsWarehousesService.add(wmsWarehouses);
 		return Result.OK("添加成功！");
 	}
 	
@@ -101,7 +102,8 @@ public class WmsWarehousesController extends JeecgController<WmsWarehouses, IWms
 	@RequiresPermissions("warehouse:wms_warehouses:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsWarehouses wmsWarehouses) {
-		wmsWarehousesService.updateById(wmsWarehouses);
+		//wmsWarehousesService.updateById(wmsWarehouses);
+        wmsWarehousesService.edit(wmsWarehouses);
 		return Result.OK("编辑成功!");
 	}
 	
