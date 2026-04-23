@@ -71,7 +71,7 @@ public class WmsWarehouses implements Serializable {
     private java.lang.String warehouseAttr;
 	/**状态: 创建,启动,禁用*/
 	@Excel(name = "状态: 创建,启动,禁用", width = 15, dicCode = "dict_item_status")
-	@Dict(dicCode = "dict_item_status")
+	@Dict(dicCode = "wms_status")
     @Schema(description = "状态: 创建,启动,禁用")
     private java.lang.String status;
 }
