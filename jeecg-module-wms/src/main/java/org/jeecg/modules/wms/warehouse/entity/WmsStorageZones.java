@@ -67,7 +67,7 @@ public class WmsStorageZones implements Serializable {
     private java.lang.String zoneType;
 	/**状态: 创建,禁用, 启用*/
 	@Excel(name = "状态: 创建,禁用, 启用", width = 15, dicCode = "dict_item_status")
-	@Dict(dicCode = "dict_item_status")
+	@Dict(dicCode = "wms_status")
     @Schema(description = "状态: 创建,禁用, 启用")
     private java.lang.String status;
 	/**是否可售库存 0-否, 1-是*/
