@@ -62,6 +62,7 @@ public class WmsStorageLocations implements Serializable {
     private java.lang.String locationCode;
 	/**储位类别*/
 	@Excel(name = "储位类别", width = 15)
+    @Dict(dicCode = "location_category")
     @Schema(description = "储位类别")
     private java.lang.String locationCategory;
 	/**库位类型*/
@@ -71,7 +72,7 @@ public class WmsStorageLocations implements Serializable {
     private java.lang.String locationType;
 	/**状态*/
 	@Excel(name = "状态", width = 15, dicCode = "dict_item_status")
-	@Dict(dicCode = "dict_item_status")
+	@Dict(dicCode = "wms_status")
     @Schema(description = "状态")
     private java.lang.String status;
 	/**所属仓库*/
