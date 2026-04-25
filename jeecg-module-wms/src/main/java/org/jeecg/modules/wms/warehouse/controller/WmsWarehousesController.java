@@ -121,6 +121,40 @@ public class WmsWarehousesController extends JeecgController<WmsWarehouses, IWms
 		wmsWarehousesService.removeById(id);
 		return Result.OK("删除成功!");
 	}
+
+     /**
+      *   通过id启用仓库
+      *
+      * @param id
+      * @return
+      */
+     @AutoLog(value = "仓库表-通过id启用仓库")
+     @Operation(summary="仓库表-通过id启用仓库")
+     //@RequiresPermissions("warehouse:wms_warehouses:enable")
+     //@DeleteMapping(value = "/enable")
+     @RequestMapping(value = "/enable", method = {RequestMethod.PUT,RequestMethod.POST})
+     public Result<String> enable(@RequestParam(name="id",required=true) String id) {
+         wmsWarehousesService.enable(id);
+         return Result.OK("启用成功!");
+     }
+
+     /**
+      *   通过id禁用仓库
+      *
+      * @param id
+      * @return
+      */
+     @AutoLog(value = "仓库表-通过id禁用仓库")
+     @Operation(summary="仓库表-通过id禁用仓库")
+     //@RequiresPermissions("warehouse:wms_warehouses:enable")
+     //@DeleteMapping(value = "/enable")
+     @RequestMapping(value = "/disable", method = {RequestMethod.PUT,RequestMethod.POST})
+     public Result<String> disable(@RequestParam(name="id",required=true) String id) {
+         wmsWarehousesService.disable(id);
+         return Result.OK("禁用成功!");
+     }
+
+
 	
 	/**
 	 *  批量删除

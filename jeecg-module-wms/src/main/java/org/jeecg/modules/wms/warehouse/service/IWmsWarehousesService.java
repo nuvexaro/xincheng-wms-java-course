@@ -11,7 +11,27 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IWmsWarehousesService extends IService<WmsWarehouses> {
 
+    /**
+     * 添加仓库
+     * @param wmsWarehouses
+     */
     void add(WmsWarehouses wmsWarehouses);
 
+    /**
+     * 编辑仓库
+     * @param wmsWarehouses
+     */
     void edit(WmsWarehouses wmsWarehouses);
+
+    /**
+     * 启用仓库
+     * @param id
+     */
+    void enable(String id);
+
+    /**
+     * 禁用仓库
+     * @param id
+     */
+    void disable(String id);
 }

@@ -1,6 +1,7 @@
 package org.jeecg.modules.wms.warehouse.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import me.zhyd.oauth.utils.StringUtils;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.modules.wms.config.WarehouseDictEnum;
 import org.jeecg.modules.wms.warehouse.entity.WmsWarehouses;
@@ -55,5 +56,41 @@ public class WmsWarehousesServiceImpl extends ServiceImpl<WmsWarehousesMapper, W
 
         this.updateById(wmsWarehouses);
 
+    }
+
+    @Override
+    public void enable(String id) {
+        if(StringUtils.isEmpty(id)){
+            throw new JeecgBootException("仓库ID不能为空");
+        }
+        WmsWarehouses wmsWarehouse = this.getById(id);
+        if(wmsWarehouse == null){
+            throw new JeecgBootException("仓库不存在");
+        }
+
+        //仓库状态为“创建”或禁用时方可启用
+        if(!(WarehouseDictEnum.STATUS_CREATED.getCode().equals(wmsWarehouse.getStatus()) || WarehouseDictEnum.STATUS_INACTIVE.getCode().equals(wmsWarehouse.getStatus()))){
+            throw new JeecgBootException("仓库状态不为创建或者禁用，无法启用");
+        }
+        wmsWarehouse.setStatus(WarehouseDictEnum.STATUS_ACTIVE.getCode());
+        this.updateById(wmsWarehouse);
+    }
+
+    @Override
+    public void disable(String id) {
+        if(StringUtils.isEmpty(id)){
+            throw new JeecgBootException("仓库ID不能为空");
+        }
+        WmsWarehouses wmsWarehouse = this.getById(id);
+        if(wmsWarehouse == null){
+            throw new JeecgBootException("仓库不存在");
+        }
+
+        //仓库状态为“启用”时方可禁用
+        if(!(WarehouseDictEnum.STATUS_ACTIVE.getCode().equals(wmsWarehouse.getStatus()) )){
+            throw new JeecgBootException("仓库状态不为创建或者禁用，无法启用");
+        }
+        wmsWarehouse.setStatus(WarehouseDictEnum.STATUS_INACTIVE.getCode());
+        this.updateById(wmsWarehouse);
     }
 }
