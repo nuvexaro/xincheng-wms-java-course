@@ -2,11 +2,13 @@ package org.jeecg.modules.wms.goods.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.jeecg.common.exception.JeecgBootException;
+import org.jeecg.common.util.RedisUtil;
 import org.jeecg.common.util.oConvertUtils;
 import org.jeecg.common.system.vo.SelectTreeModel;
 import org.jeecg.modules.wms.goods.entity.WmsProductCategories;
 import org.jeecg.modules.wms.goods.mapper.WmsProductCategoriesMapper;
 import org.jeecg.modules.wms.goods.service.IWmsProductCategoriesService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,10 +27,14 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 @Service
 public class WmsProductCategoriesServiceImpl extends ServiceImpl<WmsProductCategoriesMapper, WmsProductCategories> implements IWmsProductCategoriesService {
 
+    @Autowired
+    private RedisUtil redisUtil;
+
 	@Override
 	public void addWmsProductCategories(WmsProductCategories wmsProductCategories) {
 	   //新增时设置hasChild为0
 	    wmsProductCategories.setHasChild(IWmsProductCategoriesService.NOCHILD);
+
 		if(oConvertUtils.isEmpty(wmsProductCategories.getParentId())){
 			wmsProductCategories.setParentId(IWmsProductCategoriesService.ROOT_PID_VALUE);
 		}else{
@@ -39,10 +45,32 @@ public class WmsProductCategoriesServiceImpl extends ServiceImpl<WmsProductCateg
 				baseMapper.updateById(parent);
 			}
 		}
+
+        String categoryCode = generateCategoryCode(wmsProductCategories);
+        wmsProductCategories.setCategoryCode(categoryCode);
+
 		baseMapper.insert(wmsProductCategories);
 	}
-	
-	@Override
+
+    /*
+        类别编码：
+        第一级分类为两位编号，第二级分类为一级分类编码+二级分类编码(2位)，依次类推
+        正常情况下一个空的分类表，一级分类自动生成，按按01、02、03。。。这样的顺序生成。
+     */
+    private String generateCategoryCode(WmsProductCategories wmsProductCategories) {
+        WmsProductCategories parent = getById(wmsProductCategories.getParentId());
+        long incr = 0;
+        try{
+            incr =  redisUtil.incr("PRODUCT_CATEGORY_CODE_"+parent.getCategoryCode(), 1L);
+        }catch (Exception e){
+            log.error("生成商品分类编码失败", e);
+            throw new JeecgBootException("生成商品分类编码失败");
+        }
+
+        return parent.getCategoryCode() + String.format("%02d", incr);
+    }
+
+    @Override
 	public void updateWmsProductCategories(WmsProductCategories wmsProductCategories) {
 		WmsProductCategories entity = this.getById(wmsProductCategories.getId());
 		if(entity==null) {

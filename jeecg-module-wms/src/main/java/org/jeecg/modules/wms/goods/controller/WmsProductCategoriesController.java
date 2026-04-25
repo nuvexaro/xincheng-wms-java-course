@@ -65,7 +65,7 @@ public class WmsProductCategoriesController extends JeecgController<WmsProductCa
 	 * @return
 	 */
 	//@AutoLog(value = "商品类别-分页列表查询")
-	@Operation(summary="商品类别-分页列表查询")
+	@Operation(summary="商品类别-分页列表查询",operationId = "wmsProductCategories_queryPageList")
 	@GetMapping(value = "/rootList")
 	public Result<IPage<WmsProductCategories>> queryPageList(WmsProductCategories wmsProductCategories,
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
@@ -228,7 +228,7 @@ public class WmsProductCategoriesController extends JeecgController<WmsProductCa
 	 * @return
 	 */
 	@AutoLog(value = "商品类别-添加")
-	@Operation(summary="商品类别-添加")
+	@Operation(summary="商品类别-添加",operationId="WmsProductCategoriesController-add")
     @RequiresPermissions("goods:wms_product_categories:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsProductCategories wmsProductCategories) {
