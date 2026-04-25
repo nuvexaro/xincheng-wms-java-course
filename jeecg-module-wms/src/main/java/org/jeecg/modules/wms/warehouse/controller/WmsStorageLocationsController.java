@@ -63,15 +63,16 @@ public class WmsStorageLocationsController extends JeecgController<WmsStorageLoc
 	 * @return
 	 */
 	//@AutoLog(value = "储位表-分页列表查询")
-	@Operation(summary="储位表-分页列表查询")
+	@Operation(summary="储位表-分页列表查询",operationId = "WmsStorageLocationsController-queryPageList")
 	@GetMapping(value = "/list")
 	public Result<IPage<WmsStorageLocations>> queryPageList(WmsStorageLocations wmsStorageLocations,
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
-        QueryWrapper<WmsStorageLocations> queryWrapper = QueryGenerator.initQueryWrapper(wmsStorageLocations, req.getParameterMap());
-		Page<WmsStorageLocations> page = new Page<WmsStorageLocations>(pageNo, pageSize);
-		IPage<WmsStorageLocations> pageList = wmsStorageLocationsService.page(page, queryWrapper);
+//        QueryWrapper<WmsStorageLocations> queryWrapper = QueryGenerator.initQueryWrapper(wmsStorageLocations, req.getParameterMap());
+//		Page<WmsStorageLocations> page = new Page<WmsStorageLocations>(pageNo, pageSize);
+//		IPage<WmsStorageLocations> pageList = wmsStorageLocationsService.page(page, queryWrapper);
+        IPage<WmsStorageLocations> pageList = wmsStorageLocationsService.queryPageList(wmsStorageLocations,pageNo,pageSize);
 		return Result.OK(pageList);
 	}
 	

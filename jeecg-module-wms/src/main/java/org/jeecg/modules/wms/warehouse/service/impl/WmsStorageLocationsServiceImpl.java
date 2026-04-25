@@ -1,11 +1,23 @@
 package org.jeecg.modules.wms.warehouse.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.toolkit.Db;
+import lombok.val;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageLocations;
+import org.jeecg.modules.wms.warehouse.entity.WmsStorageZones;
+import org.jeecg.modules.wms.warehouse.entity.WmsWarehouses;
 import org.jeecg.modules.wms.warehouse.mapper.WmsStorageLocationsMapper;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageLocationsService;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @Description: 储位表
@@ -16,4 +28,40 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 @Service
 public class WmsStorageLocationsServiceImpl extends ServiceImpl<WmsStorageLocationsMapper, WmsStorageLocations> implements IWmsStorageLocationsService {
 
+    @Override
+    public IPage<WmsStorageLocations> queryPageList(WmsStorageLocations wmsStorageLocations, Integer pageNo, Integer pageSize) {
+
+        Page<WmsStorageLocations> page = new Page<>(pageNo, pageSize);
+        IPage<WmsStorageLocations> pageList = lambdaQuery()
+                .like(StringUtils.isNotEmpty(wmsStorageLocations.getLocationCode()), WmsStorageLocations::getLocationCode, wmsStorageLocations.getLocationCode())
+                .eq(StringUtils.isNotEmpty(wmsStorageLocations.getStatus()),WmsStorageLocations::getStatus,wmsStorageLocations.getStatus())
+                .eq(wmsStorageLocations.getWarehouseId()!=null,WmsStorageLocations::getWarehouseId,wmsStorageLocations.getWarehouseId())
+                .eq(wmsStorageLocations.getZoneId()!=null,WmsStorageLocations::getZoneId,wmsStorageLocations.getZoneId())
+                .page(page);
+
+        //获取仓库ids 并转化为id2Map的形式
+        List<String> warehouseIds = pageList.getRecords().stream().map(WmsStorageLocations::getWarehouseId).collect(Collectors.toList());
+
+        Map<String, String> warehouseId2NameMap = Db.lambdaQuery(WmsWarehouses.class)
+                .select(WmsWarehouses::getId, WmsWarehouses::getWarehouseName)
+                .in(CollectionUtils.isNotEmpty(warehouseIds), WmsWarehouses::getId, warehouseIds)
+                .list()
+                .stream().collect(Collectors.toMap(WmsWarehouses::getId, WmsWarehouses::getWarehouseName));
+
+        //获取储区ids 并转化为id2Map的形式
+        List<String> zoneIds = pageList.getRecords().stream().map(WmsStorageLocations::getZoneId).collect(Collectors.toList());
+
+        Map<String, String> zoneId2NameMap = Db.lambdaQuery(WmsStorageZones.class)
+                .select(WmsStorageZones::getId, WmsStorageZones::getZoneName)
+                .in(CollectionUtils.isNotEmpty(zoneIds), WmsStorageZones::getId, zoneIds)
+                .list()
+                .stream().collect(Collectors.toMap(WmsStorageZones::getId, WmsStorageZones::getZoneName));
+
+        pageList.getRecords().forEach(item -> {
+            item.setWarehouseName(warehouseId2NameMap.get(item.getWarehouseId()));
+            item.setZoneName(zoneId2NameMap.get(item.getZoneId()));
+        });
+
+        return pageList;
+    }
 }

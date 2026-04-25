@@ -34,52 +34,52 @@ public class WmsStorageZones implements Serializable {
 	/**主键*/
 	@TableId(type = IdType.ASSIGN_ID)
     @Schema(description = "主键")
-    private java.lang.String id;
+    private String id;
 	/**创建人*/
     @Schema(description = "创建人")
-    private java.lang.String createBy;
+    private String createBy;
 	/**创建日期*/
 	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern="yyyy-MM-dd HH:mm:ss")
     @Schema(description = "创建日期")
-    private java.util.Date createTime;
+    private Date createTime;
 	/**更新人*/
     @Schema(description = "更新人")
-    private java.lang.String updateBy;
+    private String updateBy;
 	/**更新日期*/
 	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern="yyyy-MM-dd HH:mm:ss")
     @Schema(description = "更新日期")
-    private java.util.Date updateTime;
+    private Date updateTime;
 	/**库区编码*/
 	@Excel(name = "库区编码", width = 15)
     @Schema(description = "库区编码")
-    private java.lang.String zoneCode;
+    private String zoneCode;
 	/**库区名称*/
 	@Excel(name = "库区名称", width = 15)
     @Schema(description = "库区名称")
-    private java.lang.String zoneName;
+    private String zoneName;
 	/**库区类型*/
 	@Excel(name = "库区类型", width = 15)
     @Dict(dicCode = "zone_type")
     @Schema(description = "库区类型")
-    private java.lang.String zoneType;
+    private String zoneType;
 	/**状态: 创建,禁用, 启用*/
 	@Excel(name = "状态: 创建,禁用, 启用", width = 15, dicCode = "dict_item_status")
 	@Dict(dicCode = "wms_status")
     @Schema(description = "状态: 创建,禁用, 启用")
-    private java.lang.String status;
+    private String status;
 	/**是否可售库存 0-否, 1-是*/
 	@Excel(name = "是否可售库存 0-否, 1-是", width = 15, dicCode = "yn")
 	@Dict(dicCode = "yn")
     @Schema(description = "是否可售库存 0-否, 1-是")
-    private java.lang.String isSellable;
+    private String isSellable;
 	/**所属仓库*/
 	@Excel(name = "所属仓库", width = 15)
     @Schema(description = "所属仓库")
-    private java.lang.String warehouseId;
+    private String warehouseId;
 
     @Schema(description = "所属仓库名称")
     @TableField(exist = false)
-    private java.lang.String warehouseName;
+    private String warehouseName;
 }

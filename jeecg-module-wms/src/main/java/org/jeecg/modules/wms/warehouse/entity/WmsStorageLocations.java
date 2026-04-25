@@ -4,10 +4,8 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.math.BigDecimal;
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.TableLogic;
+
+import com.baomidou.mybatisplus.annotation.*;
 import org.jeecg.common.constant.ProvinceCityArea;
 import org.jeecg.common.util.SpringContextUtils;
 import lombok.Data;
@@ -36,10 +34,10 @@ public class WmsStorageLocations implements Serializable {
 	/**主键*/
 	@TableId(type = IdType.ASSIGN_ID)
     @Schema(description = "主键")
-    private java.lang.String id;
+    private String id;
 	/**创建人*/
     @Schema(description = "创建人")
-    private java.lang.String createBy;
+    private String createBy;
 	/**创建日期*/
 	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern="yyyy-MM-dd HH:mm:ss")
@@ -47,7 +45,7 @@ public class WmsStorageLocations implements Serializable {
     private java.util.Date createTime;
 	/**更新人*/
     @Schema(description = "更新人")
-    private java.lang.String updateBy;
+    private String updateBy;
 	/**更新日期*/
 	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern="yyyy-MM-dd HH:mm:ss")
@@ -55,69 +53,79 @@ public class WmsStorageLocations implements Serializable {
     private java.util.Date updateTime;
 	/**所属部门*/
     @Schema(description = "所属部门")
-    private java.lang.String sysOrgCode;
+    private String sysOrgCode;
 	/**库位编码*/
 	@Excel(name = "库位编码", width = 15)
     @Schema(description = "库位编码")
-    private java.lang.String locationCode;
+    private String locationCode;
 	/**储位类别*/
 	@Excel(name = "储位类别", width = 15)
     @Dict(dicCode = "location_category")
     @Schema(description = "储位类别")
-    private java.lang.String locationCategory;
+    private String locationCategory;
 	/**库位类型*/
 	@Excel(name = "库位类型", width = 15, dicCode = "location_type")
 	@Dict(dicCode = "location_type")
     @Schema(description = "库位类型")
-    private java.lang.String locationType;
+    private String locationType;
 	/**状态*/
 	@Excel(name = "状态", width = 15, dicCode = "dict_item_status")
 	@Dict(dicCode = "wms_status")
     @Schema(description = "状态")
-    private java.lang.String status;
+    private String status;
 	/**所属仓库*/
 	@Excel(name = "所属仓库", width = 15)
     @Schema(description = "所属仓库")
-    private java.lang.String warehouseId;
+    private String warehouseId;
+
+    @Schema(description = "所属仓库名称")
+    @TableField(exist = false)
+    private String warehouseName;
+
 	/**所属库区*/
 	@Excel(name = "所属库区", width = 15)
     @Schema(description = "所属库区")
-    private java.lang.String zoneId;
+    private String zoneId;
+
+    @Schema(description = "所属库区名称")
+    @TableField(exist = false)
+    private String zoneName;
+
 	/**巷道*/
 	@Excel(name = "巷道", width = 15)
     @Schema(description = "巷道")
-    private java.lang.String locationAisle;
+    private String locationAisle;
 	/**排*/
 	@Excel(name = "排", width = 15)
     @Schema(description = "排")
-    private java.lang.String locationLine;
+    private String locationLine;
 	/**列*/
 	@Excel(name = "列", width = 15)
     @Schema(description = "列")
-    private java.lang.String locationRank;
+    private String locationRank;
 	/**层*/
 	@Excel(name = "层", width = 15)
     @Schema(description = "层")
-    private java.lang.String locationLayer;
+    private String locationLayer;
 	/**长*/
 	@Excel(name = "长", width = 15)
     @Schema(description = "长")
-    private java.lang.Double locationLength;
+    private Double locationLength;
 	/**宽*/
 	@Excel(name = "宽", width = 15)
     @Schema(description = "宽")
-    private java.lang.Double locationWidth;
+    private Double locationWidth;
 	/**容积*/
 	@Excel(name = "容积", width = 15)
     @Schema(description = "容积")
-    private java.lang.Double locationCapacity;
+    private Double locationCapacity;
 	/**承重*/
 	@Excel(name = "承重", width = 15)
     @Schema(description = "承重")
-    private java.lang.Double loadCapacity;
+    private Double loadCapacity;
 	/**是否可售*/
 	@Excel(name = "是否可售", width = 15, dicCode = "yn")
 	@Dict(dicCode = "yn")
     @Schema(description = "是否可售")
-    private java.lang.String isSellable;
+    private String isSellable;
 }
