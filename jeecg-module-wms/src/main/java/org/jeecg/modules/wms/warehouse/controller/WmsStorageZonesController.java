@@ -63,7 +63,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	 * @return
 	 */
 	//@AutoLog(value = "储区表-分页列表查询")
-	@Operation(summary="储区表-分页列表查询")
+	@Operation(summary="储区表-分页列表查询",operationId = "WmsStorageZonesController-queryPageList")
 	@GetMapping(value = "/list")
 	public Result<IPage<WmsStorageZones>> queryPageList(WmsStorageZones wmsStorageZones,
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
