@@ -214,6 +214,16 @@ public class WmsProductCategoriesController extends JeecgController<WmsProductCa
             List<WmsProductCategories> list = wmsProductCategoriesService.list(queryWrapper);
             IPage<WmsProductCategories> pageList = new Page<>(1, 10, list.size());
             pageList.setRecords(list);
+
+            if(CollectionUtils.isNotEmpty(parentIdList)) {
+                List<WmsProductCategories> parentList = wmsProductCategoriesService.listByIds(parentIdList);
+                final Map<String, String> parentMap = parentList.stream()
+                        .collect(Collectors.toMap(WmsProductCategories::getId, WmsProductCategories::getCategoryName));
+
+                pageList.getRecords().forEach(item -> {
+					item.setParentName(parentMap.get(item.getParentId()));
+				});
+            }
             return Result.OK(pageList);
         } catch (Exception e) {
             log.error(e.getMessage(), e);
