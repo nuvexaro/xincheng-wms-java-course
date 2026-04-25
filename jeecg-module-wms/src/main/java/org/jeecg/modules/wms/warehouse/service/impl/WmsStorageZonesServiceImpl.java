@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 //import com.github.pagehelper.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
 import org.apache.commons.lang3.StringUtils;
+import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageZones;
 import org.jeecg.modules.wms.warehouse.entity.WmsWarehouses;
 import org.jeecg.modules.wms.warehouse.mapper.WmsStorageZonesMapper;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.jeecg.modules.wms.config.WarehouseDictEnum.*;
 
 /**
  * @Description: 储区表
@@ -66,5 +69,48 @@ public class WmsStorageZonesServiceImpl extends ServiceImpl<WmsStorageZonesMappe
 
 
         return pageList;
+    }
+
+    @Override
+    public void enable(String id) {
+        if(StringUtils.isEmpty(id)){
+            throw new JeecgBootException("id不能为空");
+        }
+
+        WmsStorageZones wmsStorageZones = this.getById(id);
+        if(wmsStorageZones == null){
+            throw new JeecgBootException("储区不存在");
+        }
+
+        if(!(STATUS_CREATED.getCode().equals(wmsStorageZones.getStatus()) || STATUS_INACTIVE.getCode().equals(wmsStorageZones.getStatus()))){
+            throw new JeecgBootException("储区状态不为创建或者禁用，无法启用");
+        }
+
+        lambdaUpdate()
+                .set(WmsStorageZones::getStatus,STATUS_ACTIVE.getCode())
+                .eq(WmsStorageZones::getId,id)
+                .update();
+
+    }
+
+    @Override
+    public void disable(String id) {
+        if(StringUtils.isEmpty(id)){
+            throw new JeecgBootException("id不能为空");
+        }
+
+        WmsStorageZones wmsStorageZones = this.getById(id);
+        if(wmsStorageZones == null){
+            throw new JeecgBootException("储区不存在");
+        }
+
+        if(!(STATUS_ACTIVE.getCode().equals(wmsStorageZones.getStatus()))){
+            throw new JeecgBootException("储区状态不为创建或者禁用，无法启用");
+        }
+
+        lambdaUpdate()
+                .set(WmsStorageZones::getStatus,STATUS_INACTIVE.getCode())
+                .eq(WmsStorageZones::getId,id)
+                .update();
     }
 }

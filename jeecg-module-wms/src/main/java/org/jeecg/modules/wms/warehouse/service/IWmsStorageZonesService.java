@@ -20,4 +20,16 @@ public interface IWmsStorageZonesService extends IService<WmsStorageZones> {
      * @return
      */
     IPage<WmsStorageZones> queryPageList(WmsStorageZones wmsStorageZones, Integer pageNo, Integer pageSize);
+
+    /**
+     * 通过id启用储区
+     * @param id 储区id
+     */
+    void enable(String id);
+
+    /**
+     * 通过id禁用储区
+     * @param id 储区id
+     */
+    void disable(String id);
 }

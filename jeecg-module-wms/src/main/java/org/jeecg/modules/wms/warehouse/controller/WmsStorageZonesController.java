@@ -62,7 +62,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	 * @return
 	 */
 	@AutoLog(value = "储区表-添加")
-	@Operation(summary="储区表-添加")
+	@Operation(summary="储区表-添加",operationId = "WmsStorageZonesController-add")
 	@RequiresPermissions("warehouse:wms_storage_zones:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsStorageZones wmsStorageZones) {
@@ -77,7 +77,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	 * @return
 	 */
 	@AutoLog(value = "储区表-编辑")
-	@Operation(summary="储区表-编辑")
+	@Operation(summary="储区表-编辑",operationId = "WmsStorageZonesController-edit")
 	@RequiresPermissions("warehouse:wms_storage_zones:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsStorageZones wmsStorageZones) {
@@ -92,13 +92,43 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	 * @return
 	 */
 	@AutoLog(value = "储区表-通过id删除")
-	@Operation(summary="储区表-通过id删除")
+	@Operation(summary="储区表-通过id删除",operationId = "WmsStorageZonesController-delete")
 	@RequiresPermissions("warehouse:wms_storage_zones:delete")
 	@DeleteMapping(value = "/delete")
 	public Result<String> delete(@RequestParam(name="id",required=true) String id) {
 		wmsStorageZonesService.removeById(id);
 		return Result.OK("删除成功!");
 	}
+
+     /**
+      *   通过id启用储区
+      *
+      * @param id
+      * @return
+      */
+     @AutoLog(value = "储区表-通过id启用储区")
+     @Operation(summary="储区表-通过id启用储区",operationId = "WmsStorageZonesController-enable")
+     //@RequiresPermissions("warehouse:wms_storage_zones:delete")
+     @RequestMapping(value = "/enable", method = {RequestMethod.PUT,RequestMethod.POST})
+     public Result<String> enable(@RequestParam(name="id",required=true) String id) {
+         wmsStorageZonesService.enable(id);
+         return Result.OK("启用成功!");
+     }
+
+     /**
+      *   通过id禁用储区
+      *
+      * @param id
+      * @return
+      */
+     @AutoLog(value = "储区表-通过id禁用储区")
+     @Operation(summary="储区表-通过id禁用储区",operationId = "WmsStorageZonesController-disable")
+     //@RequiresPermissions("warehouse:wms_storage_zones:delete")
+     @RequestMapping(value = "/disable", method = {RequestMethod.PUT,RequestMethod.POST})
+     public Result<String> disable(@RequestParam(name="id",required=true) String id) {
+         wmsStorageZonesService.disable(id);
+         return Result.OK("禁用成功!");
+     }
 	
 	/**
 	 *  批量删除
@@ -107,7 +137,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	 * @return
 	 */
 	@AutoLog(value = "储区表-批量删除")
-	@Operation(summary="储区表-批量删除")
+	@Operation(summary="储区表-批量删除",operationId = "WmsStorageZonesController-deleteBatch")
 	@RequiresPermissions("warehouse:wms_storage_zones:deleteBatch")
 	@DeleteMapping(value = "/deleteBatch")
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
@@ -122,7 +152,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	 * @return
 	 */
 	//@AutoLog(value = "储区表-通过id查询")
-	@Operation(summary="储区表-通过id查询")
+	@Operation(summary="储区表-通过id查询",operationId = "WmsStorageZonesController-queryById")
 	@GetMapping(value = "/queryById")
 	public Result<WmsStorageZones> queryById(@RequestParam(name="id",required=true) String id) {
 		WmsStorageZones wmsStorageZones = wmsStorageZonesService.getById(id);
