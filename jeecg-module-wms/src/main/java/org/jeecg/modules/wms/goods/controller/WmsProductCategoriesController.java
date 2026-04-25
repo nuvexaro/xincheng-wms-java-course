@@ -9,6 +9,9 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.val;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.util.oConvertUtils;
@@ -74,18 +77,33 @@ public class WmsProductCategoriesController extends JeecgController<WmsProductCa
             List<WmsProductCategories> list = wmsProductCategoriesService.queryTreeListNoPage(queryWrapper);
             IPage<WmsProductCategories> pageList = new Page<>(1, 10, list.size());
             pageList.setRecords(list);
+            List<String> parentIds = pageList.getRecords().stream().map(WmsProductCategories::getParentId).collect(Collectors.toList());
+            if(CollectionUtils.isNotEmpty(parentIds)){
+                List<WmsProductCategories> parentList = wmsProductCategoriesService.listByIds(parentIds);
+                final Map<String, String> parentMap = parentList.stream()
+                        .collect(Collectors.toMap(WmsProductCategories::getId, WmsProductCategories::getCategoryName));
+
+                pageList.getRecords().forEach(item -> {
+					item.setParentName(parentMap.get(item.getParentId()));
+				});
+            }
             return Result.OK(pageList);
         }else{
             String parentId = wmsProductCategories.getParentId();
             if (oConvertUtils.isEmpty(parentId)) {
                 parentId = "0";
             }
+            WmsProductCategories parentWmsProductCategory = this.wmsProductCategoriesService.getById(parentId);
+            final String parentName = parentWmsProductCategory != null? parentWmsProductCategory.getCategoryName():"";
             wmsProductCategories.setParentId(null);
             QueryWrapper<WmsProductCategories> queryWrapper = QueryGenerator.initQueryWrapper(wmsProductCategories, req.getParameterMap());
             // 使用 eq 防止模糊查询
             queryWrapper.eq("parent_id", parentId);
             Page<WmsProductCategories> page = new Page<WmsProductCategories>(pageNo, pageSize);
             IPage<WmsProductCategories> pageList = wmsProductCategoriesService.page(page, queryWrapper);
+            pageList.getRecords().forEach(item -> {
+				item.setParentName(parentName);
+			});
             return Result.OK(pageList);
         }
 	}
@@ -165,6 +183,16 @@ public class WmsProductCategoriesController extends JeecgController<WmsProductCa
 		List<WmsProductCategories> list = wmsProductCategoriesService.list(queryWrapper);
 		IPage<WmsProductCategories> pageList = new Page<>(1, 10, list.size());
         pageList.setRecords(list);
+        List<String> parentIds = pageList.getRecords().stream().map(WmsProductCategories::getParentId).collect(Collectors.toList());
+        if(CollectionUtils.isNotEmpty(parentIds)){
+            List<WmsProductCategories> parentList = wmsProductCategoriesService.listByIds(parentIds);
+            final Map<String, String> parentMap = parentList.stream()
+                    .collect(Collectors.toMap(WmsProductCategories::getId, WmsProductCategories::getCategoryName));
+
+            pageList.getRecords().forEach(item -> {
+                item.setParentName(parentMap.get(item.getParentId()));
+            });
+        }
 		return Result.OK(pageList);
 	}
 
