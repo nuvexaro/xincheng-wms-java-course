@@ -63,6 +63,7 @@ public class WmsStorageZones implements Serializable {
     private java.lang.String zoneName;
 	/**库区类型*/
 	@Excel(name = "库区类型", width = 15)
+    @Dict(dicCode = "zone_type")
     @Schema(description = "库区类型")
     private java.lang.String zoneType;
 	/**状态: 创建,禁用, 启用*/
