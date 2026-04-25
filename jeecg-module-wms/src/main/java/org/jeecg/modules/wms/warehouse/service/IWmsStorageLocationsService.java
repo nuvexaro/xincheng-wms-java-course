@@ -20,4 +20,16 @@ public interface IWmsStorageLocationsService extends IService<WmsStorageLocation
      * @return
      */
     IPage<WmsStorageLocations> queryPageList(WmsStorageLocations wmsStorageLocations, Integer pageNo, Integer pageSize);
+
+    /**
+     * 通过id启用储位
+     * @param id
+     */
+    void enable(String id);
+
+    /**
+     * 通过id禁用储位
+     * @param id
+     */
+    void disable(String id);
 }

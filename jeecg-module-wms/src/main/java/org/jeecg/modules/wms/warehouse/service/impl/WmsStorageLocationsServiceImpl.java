@@ -2,10 +2,11 @@ package org.jeecg.modules.wms.warehouse.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
-import lombok.val;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageLocations;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageZones;
 import org.jeecg.modules.wms.warehouse.entity.WmsWarehouses;
@@ -13,11 +14,11 @@ import org.jeecg.modules.wms.warehouse.mapper.WmsStorageLocationsMapper;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageLocationsService;
 import org.springframework.stereotype.Service;
 
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.jeecg.modules.wms.config.WarehouseDictEnum.*;
 
 /**
  * @Description: 储位表
@@ -63,5 +64,46 @@ public class WmsStorageLocationsServiceImpl extends ServiceImpl<WmsStorageLocati
         });
 
         return pageList;
+    }
+
+    @Override
+    public void enable(String id) {
+
+        if(StringUtils.isEmpty(id)){
+            throw new JeecgBootException("储位ID不能为空");
+        }
+
+        WmsStorageLocations wmsStorageLocations = this.getById(id);
+        if(wmsStorageLocations == null){
+            throw new JeecgBootException("储位不存在");
+        }
+
+        if(!(STATUS_CREATED.getCode().equals(wmsStorageLocations.getStatus()) || STATUS_INACTIVE.getCode().equals(wmsStorageLocations.getStatus()))){
+            throw new JeecgBootException("储位状态不为创建或者禁用，无法启用");
+        }
+
+        wmsStorageLocations.setStatus(STATUS_ACTIVE.getCode());
+        this.updateById(wmsStorageLocations);
+    }
+
+    @Override
+    public void disable(String id) {
+        if(StringUtils.isEmpty(id)){
+            throw new JeecgBootException("储位ID不能为空");
+        }
+
+        WmsStorageLocations wmsStorageLocations = this.getById(id);
+        if(wmsStorageLocations == null){
+            throw new JeecgBootException("储位不存在");
+        }
+
+        if(!(STATUS_ACTIVE.getCode().equals(wmsStorageLocations.getStatus()) )) {
+            throw new JeecgBootException("储位状态不为启用，无法禁用");
+        }
+
+        lambdaUpdate()
+                .set(WmsStorageLocations::getStatus,STATUS_INACTIVE.getCode())
+                .eq(WmsStorageLocations::getId,id)
+                .update();
     }
 }
