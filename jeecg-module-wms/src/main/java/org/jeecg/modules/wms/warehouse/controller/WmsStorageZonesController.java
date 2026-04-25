@@ -69,9 +69,10 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
-        QueryWrapper<WmsStorageZones> queryWrapper = QueryGenerator.initQueryWrapper(wmsStorageZones, req.getParameterMap());
-		Page<WmsStorageZones> page = new Page<WmsStorageZones>(pageNo, pageSize);
-		IPage<WmsStorageZones> pageList = wmsStorageZonesService.page(page, queryWrapper);
+//        QueryWrapper<WmsStorageZones> queryWrapper = QueryGenerator.initQueryWrapper(wmsStorageZones, req.getParameterMap());
+//		Page<WmsStorageZones> page = new Page<WmsStorageZones>(pageNo, pageSize);
+//		IPage<WmsStorageZones> pageList = wmsStorageZonesService.page(page, queryWrapper);
+        IPage<WmsStorageZones> pageList = wmsStorageZonesService.queryPageList(wmsStorageZones,pageNo,pageSize);
 		return Result.OK(pageList);
 	}
 	
