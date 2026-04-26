@@ -215,7 +215,7 @@ jeecg:
   #签名拦截接口
   signUrls: /sys/dict/getDictItems/*,/sys/dict/loadDict/*,/sys/dict/loadDictOrderByValue/*,/sys/dict/loadDictItem/*,/sys/dict/loadTreeData,/sys/api/queryTableDictItemsByCode,/sys/api/queryFilterTableDictInfo,/sys/api/queryTableDictByKeys,/sys/api/translateDictFromTable,/sys/api/translateDictFromTableByKeys,/sys/sendChangePwdSms,/sys/user/sendChangePhoneSms,/sys/sms,/desform/api/sendVerifyCode
   # 本地：local、Minio：minio、阿里云：alioss
-  uploadType: local
+  uploadType: alioss
   # 前端访问地址
   domainUrl:
     pc: http://localhost:3100
@@ -229,10 +229,10 @@ jeecg:
     excludeUrls: /test/jeecgDemo/demo3,/test/jeecgDemo/redisDemo/**,/bigscreen/category/**,/bigscreen/visual/**,/bigscreen/map/**,/jmreport/bigscreen2/**
   #阿里云oss存储和大鱼短信秘钥配置
   oss:
-    accessKey: ??
-    secretKey: ??
-    endpoint: oss-cn-beijing.aliyuncs.com
-    bucketName: jeecgdev
+    accessKey: LTAI5t6vTHZPBaKiAhDS658U
+    secretKey: pIcQ50wOnbtDiE6LPWpPb6lGmlYtAr
+    endpoint: oss-cn-guangzhou.aliyuncs.com
+    bucketName: cs-my-own
     # 短信模板
     sms-template:
       # 签名
@@ -246,7 +246,7 @@ jeecg:
         # 注册账号短信模板编码
         SMS_175430166:
   # 在线预览文件服务器地址配置
-  file-view-domain: http://fileview.jeecg.com
+  file-view-domain: https://cs-my-own.oss-cn-guangzhou.aliyuncs.com
   # minio文件上传
   minio:
     minio_url: http://minio.jeecg.com

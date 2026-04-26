@@ -29,6 +29,7 @@ import org.jeecgframework.poi.excel.entity.ImportParams;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
@@ -52,6 +53,9 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 public class WmsProductBrandController extends JeecgController<WmsProductBrand, IWmsProductBrandService> {
 	@Autowired
 	private IWmsProductBrandService wmsProductBrandService;
+
+    @Value("${jeecg.file-view-domain}")
+    private String fileOnlinePreviewUrl;
 	
 	/**
 	 * 分页列表查询
@@ -82,10 +86,13 @@ public class WmsProductBrandController extends JeecgController<WmsProductBrand, 
 	 * @return
 	 */
 	@AutoLog(value = "商品品牌-添加")
-	@Operation(summary="商品品牌-添加")
+	@Operation(summary="商品品牌-添加", operationId = "WmsProductBrandController-add")
 	@RequiresPermissions("goods:wms_product_brand:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsProductBrand wmsProductBrand) {
+        String logo = wmsProductBrand.getLogo();
+        String replace = logo.replace( fileOnlinePreviewUrl, "");
+        wmsProductBrand.setLogo(replace);
 		wmsProductBrandService.save(wmsProductBrand);
 		return Result.OK("添加成功！");
 	}
@@ -101,6 +108,9 @@ public class WmsProductBrandController extends JeecgController<WmsProductBrand, 
 	@RequiresPermissions("goods:wms_product_brand:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsProductBrand wmsProductBrand) {
+        String logo = wmsProductBrand.getLogo();
+        String replace = logo.replace( fileOnlinePreviewUrl, "");
+        wmsProductBrand.setLogo(replace);
 		wmsProductBrandService.updateById(wmsProductBrand);
 		return Result.OK("编辑成功!");
 	}
