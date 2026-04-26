@@ -69,7 +69,7 @@ public class WmsProductsController extends JeecgController<WmsProducts, IWmsProd
 	 * @return
 	 */
 	//@AutoLog(value = "商品信息表-分页列表查询")
-	@Operation(summary="商品信息表-分页列表查询")
+	@Operation(summary="商品信息表-分页列表查询",operationId = "WmsProductsController-queryPageList")
 	@GetMapping(value = "/list")
 	public Result<IPage<WmsProducts>> queryPageList(WmsProducts wmsProducts,
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
