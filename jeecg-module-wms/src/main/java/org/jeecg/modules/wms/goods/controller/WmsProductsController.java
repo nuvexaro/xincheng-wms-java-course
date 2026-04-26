@@ -8,12 +8,18 @@ import java.util.stream.Collectors;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+
+import com.baomidou.mybatisplus.extension.toolkit.Db;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.val;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.query.QueryRuleEnum;
 import org.jeecg.common.util.oConvertUtils;
+import org.jeecg.modules.wms.goods.entity.WmsCargoOwners;
+import org.jeecg.modules.wms.goods.entity.WmsProductBrand;
+import org.jeecg.modules.wms.goods.entity.WmsProductCategories;
 import org.jeecg.modules.wms.goods.entity.WmsProducts;
 import org.jeecg.modules.wms.goods.service.IWmsProductsService;
 
@@ -72,7 +78,41 @@ public class WmsProductsController extends JeecgController<WmsProducts, IWmsProd
         QueryWrapper<WmsProducts> queryWrapper = QueryGenerator.initQueryWrapper(wmsProducts, req.getParameterMap());
 		Page<WmsProducts> page = new Page<WmsProducts>(pageNo, pageSize);
 		IPage<WmsProducts> pageList = wmsProductsService.page(page, queryWrapper);
-		return Result.OK(pageList);
+
+        List<WmsProducts> records = pageList.getRecords();
+
+        //查询货主信息
+        List<String> productOwnerIds = records.stream().map(WmsProducts::getOwnerId).collect(Collectors.toList());
+        Map<String, String> productOwnerMap = Db.lambdaQuery(WmsCargoOwners.class)
+                .in(WmsCargoOwners::getId, productOwnerIds)
+                .list()
+                .stream()
+                .collect(Collectors.toMap(WmsCargoOwners::getId, WmsCargoOwners::getOwnerName));
+
+        //查询商品分类信息
+        List<String> productCategoryIds = records.stream().map(WmsProducts::getCategoryId).collect(Collectors.toList());
+        Map<String, String> productCategoryMap = Db.lambdaQuery(WmsProductCategories.class)
+                .in(WmsProductCategories::getId, productCategoryIds)
+                .list()
+                .stream()
+                .collect(Collectors.toMap(WmsProductCategories::getId, WmsProductCategories::getCategoryName));
+
+        //查询品牌信息
+        List<String> productBrandIds = records.stream().map(WmsProducts::getProductBrand).collect(Collectors.toList());
+        Map<String, String> productBrandMap = Db.lambdaQuery(WmsProductBrand.class)
+                .in(WmsProductBrand::getId, productBrandIds)
+                .list()
+                .stream()
+                .collect(Collectors.toMap(WmsProductBrand::getId, WmsProductBrand::getName));
+
+        records.forEach(item -> {
+            item.setOwnerName(productOwnerMap.get(item.getOwnerId()));
+            item.setCategoryName(productCategoryMap.get(item.getCategoryId()));
+            item.setProductBrandName(productBrandMap.get(item.getProductBrand()));
+        });
+
+
+        return Result.OK(pageList);
 	}
 	
 	/**
