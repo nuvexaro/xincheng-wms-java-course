@@ -13,6 +13,7 @@ import com.baomidou.mybatisplus.extension.toolkit.Db;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.val;
+import org.apache.commons.collections4.CollectionUtils;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.query.QueryRuleEnum;
@@ -80,6 +81,10 @@ public class WmsProductsController extends JeecgController<WmsProducts, IWmsProd
 		IPage<WmsProducts> pageList = wmsProductsService.page(page, queryWrapper);
 
         List<WmsProducts> records = pageList.getRecords();
+
+        if (CollectionUtils.isEmpty(records)) {
+			return Result.OK(pageList);
+		}
 
         //查询货主信息
         List<String> productOwnerIds = records.stream().map(WmsProducts::getOwnerId).collect(Collectors.toList());
