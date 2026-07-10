@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.wms.warehouse.mapper.WmsStorageLocationsMapper">
+
+<!--    多表查询（储位表连接上仓库和库区名称）-->
+    <select id="queryList"
+            parameterType="org.jeecg.modules.wms.warehouse.entity.WmsStorageLocations"
+            resultType="org.jeecg.modules.wms.warehouse.entity.WmsStorageLocations">
+        select wms_storage_locations.* ,wms_warehouses.warehouse_name warehouseName,wms_storage_zones.zone_name zoneName
+        from wms_storage_locations
+        left join wms_storage_zones on wms_storage_locations.zone_id = wms_storage_zones.id
+        left join wms_warehouses on wms_storage_zones.warehouse_id = wms_warehouses.id
+        <where>
+            <if test="locationCode != null and locationCode != ''">
+                AND wms_storage_locations.location_code like concat('%',#{locationCode},'%')
+            </if>
+            <if test="locationCategory != null and locationCategory != ''">
+                AND wms_storage_locations.location_category = #{locationCategory}
+            </if>
+            <if test="locationType != null and locationType != ''">
+                AND wms_storage_locations.location_type = #{locationType}
+            </if>
+            <if test="status != null and status != ''">
+                AND wms_storage_locations.status like concat('%',#{status},'%')
+            </if>
+            <if test="warehouseId != null and warehouseId != ''">
+                AND wms_storage_locations.warehouse_id like concat('%',#{warehouseId},'%')
+            </if>
+            <if test="zoneId != null and zoneId != ''">
+                AND wms_storage_locations.zone_id like concat('%',#{zoneId},'%')
+            </if>
+            <if test="locationAisle != null and locationAisle != ''">
+                AND wms_storage_locations.location_aisle like concat('%',#{locationAisle},'%')
+            </if>
+            <if test="locationLine != null and locationLine != ''">
+                AND wms_storage_locations.location_line like concat('%',#{locationLine},'%')
+            </if>
+            <if test="locationRank != null and locationRank != ''">
+                AND wms_storage_locations.location_rank like concat('%',#{locationRank},'%')
+            </if>
+            <if test="locationLayer != null and locationLayer != ''">
+                AND wms_storage_locations.location_layer like concat('%',#{locationLayer},'%')
+            </if>
+            <if test="isSellable != null and isSellable != ''">
+                AND wms_storage_locations.is_sellable = #{isSellable}
+            </if>
+            <if test="warehouseName != null and warehouseName != ''">
+                AND wms_warehouses.warehouse_name like concat('%',#{warehouseName},'%')
+            </if>
+            <if test="zoneName != null and zoneName != ''">
+                AND wms_storage_zones.zone_name like concat('%',#{zoneName},'%')
+            </if>
+        </where>
+    </select>
+</mapper>
