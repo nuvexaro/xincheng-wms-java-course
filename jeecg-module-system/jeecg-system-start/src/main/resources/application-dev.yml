@@ -229,10 +229,10 @@ jeecg:
     excludeUrls: /test/jeecgDemo/demo3,/test/jeecgDemo/redisDemo/**,/bigscreen/category/**,/bigscreen/visual/**,/bigscreen/map/**,/jmreport/bigscreen2/**
   #阿里云oss存储和大鱼短信秘钥配置
   oss:
-    accessKey: ??
-    secretKey: ??
-    endpoint: oss-cn-beijing.aliyuncs.com
-    bucketName: jeecgdev
+    accessKey: ${OSS_ACCESS_KEY_ID}
+    secretKey: ${OSS_ACCESS_KEY_SECRET}
+    endpoint: https://oss-cn-shenzhen.aliyuncs.com
+    bucketName: lihao-wms
     # 短信模板
     sms-template:
       # 签名
@@ -246,7 +246,7 @@ jeecg:
         # 注册账号短信模板编码
         SMS_175430166:
   # 在线预览文件服务器地址配置
-  file-view-domain: http://fileview.jeecg.com
+  file-view-domain: https://oss-cn-shenzhen.aliyuncs.com
   # minio文件上传
   minio:
     minio_url: http://minio.jeecg.com
