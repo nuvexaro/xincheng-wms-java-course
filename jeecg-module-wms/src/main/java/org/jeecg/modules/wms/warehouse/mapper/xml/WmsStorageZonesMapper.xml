@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.wms.warehouse.mapper.WmsStorageZonesMapper">
+
+    <select id="queryList"
+            parameterType="org.jeecg.modules.wms.warehouse.entity.WmsStorageZones"
+            resultType="org.jeecg.modules.wms.warehouse.entity.WmsStorageZones">
+        select wms_storage_zones.*, wms_warehouses.warehouse_name as warehouseName
+        from wms_storage_zones, wms_warehouses
+        where wms_warehouses.id = wms_storage_zones.warehouse_id
+        <if test="warehouseName != null and warehouseName != ''">
+            AND wms_warehouses.warehouse_name like concat('%',#{warehouseName},'%')
+        </if>
+        <if test="status != null and status != ''">
+            AND wms_storage_zones.status like concat('%',#{status},'%')
+        </if>
+        <if test="warehouseId != null and warehouseId != ''">
+            AND wms_storage_zones.warehouse_id like concat('%',#{warehouseId},'%')
+        </if>
+    </select>
+</mapper>

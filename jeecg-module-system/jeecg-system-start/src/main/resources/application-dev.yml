@@ -153,7 +153,7 @@ spring:
         master:
           url: jdbc:mysql://127.0.0.1:3306/xingchenwms?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
           username: root
-          password: mysql
+          password: root
           driver-class-name: com.mysql.cj.jdbc.Driver
           # 多数据源配置
           #multi-datasource1:
@@ -167,7 +167,7 @@ spring:
       database: 0
       host: 127.0.0.1
       port: 6379
-#      password:
+      # password: 123456
 #mybatis plus 设置
 mybatis-plus:
   mapper-locations: classpath*:org/jeecg/**/xml/*Mapper.xml
@@ -229,10 +229,10 @@ jeecg:
     excludeUrls: /test/jeecgDemo/demo3,/test/jeecgDemo/redisDemo/**,/bigscreen/category/**,/bigscreen/visual/**,/bigscreen/map/**,/jmreport/bigscreen2/**
   #阿里云oss存储和大鱼短信秘钥配置
   oss:
-    accessKey: ??
-    secretKey: ??
-    endpoint: oss-cn-beijing.aliyuncs.com
-    bucketName: jeecgdev
+    accessKey: ${OSS_ACCESS_KEY_ID}
+    secretKey: ${OSS_ACCESS_KEY_SECRET}
+    endpoint: https://oss-cn-shenzhen.aliyuncs.com
+    bucketName: lihao-wms
     # 短信模板
     sms-template:
       # 签名
@@ -246,7 +246,7 @@ jeecg:
         # 注册账号短信模板编码
         SMS_175430166:
   # 在线预览文件服务器地址配置
-  file-view-domain: http://fileview.jeecg.com
+  file-view-domain: https://oss-cn-shenzhen.aliyuncs.com
   # minio文件上传
   minio:
     minio_url: http://minio.jeecg.com
@@ -277,7 +277,7 @@ jeecg:
   #分布式锁配置
   redisson:
     address: 127.0.0.1:6379
-    password:
+    password: 123456
     type: STANDALONE
     enabled: true
   # 百度开放API配置

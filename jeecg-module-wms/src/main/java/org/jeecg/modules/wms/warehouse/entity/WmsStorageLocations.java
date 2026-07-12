@@ -1,0 +1,131 @@
+package org.jeecg.modules.wms.warehouse.entity;
+
+import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
+import java.util.Date;
+import java.math.BigDecimal;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import org.jeecg.common.constant.ProvinceCityArea;
+import org.jeecg.common.util.SpringContextUtils;
+import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.jeecgframework.poi.excel.annotation.Excel;
+import org.jeecg.common.aspect.annotation.Dict;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Accessors;
+
+/**
+ * @Description: 储位表
+ * @Author: jeecg-boot
+ * @Date:   2026-07-08
+ * @Version: V1.0
+ */
+@Data
+@TableName("wms_storage_locations")
+@Accessors(chain = true)
+@EqualsAndHashCode(callSuper = false)
+@Schema(description="储位表")
+public class WmsStorageLocations implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+	/**主键*/
+	@TableId(type = IdType.ASSIGN_ID)
+    @Schema(description = "主键")
+    private java.lang.String id;
+	/**创建人*/
+    @Schema(description = "创建人")
+    private java.lang.String createBy;
+	/**创建日期*/
+	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern="yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "创建日期")
+    private java.util.Date createTime;
+	/**更新人*/
+    @Schema(description = "更新人")
+    private java.lang.String updateBy;
+	/**更新日期*/
+	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern="yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "更新日期")
+    private java.util.Date updateTime;
+	/**所属部门*/
+    @Schema(description = "所属部门")
+    private java.lang.String sysOrgCode;
+	/**库位编码*/
+	@Excel(name = "库位编码", width = 15)
+    @Schema(description = "库位编码")
+    private java.lang.String locationCode;
+	/**储位类别*/
+	@Excel(name = "储位类别", width = 15)
+    @Schema(description = "储位类别")
+    @Dict(dicCode = "location_category")
+    private java.lang.String locationCategory;
+	/**库位类型*/
+	@Excel(name = "库位类型", width = 15, dicCode = "location_type")
+	@Dict(dicCode = "location_type")
+    @Schema(description = "库位类型")
+    private java.lang.String locationType;
+	/**状态*/
+	@Excel(name = "状态", width = 15, dicCode = "dict_item_status")
+	@Dict(dicCode = "wms_status")
+    @Schema(description = "状态")
+    private java.lang.String status;
+	/**所属仓库*/
+	@Excel(name = "所属仓库", width = 15)
+    @Schema(description = "所属仓库")
+    private java.lang.String warehouseId;
+	/**所属库区*/
+	@Excel(name = "所属库区", width = 15)
+    @Schema(description = "所属库区")
+    private java.lang.String zoneId;
+	/**巷道*/
+	@Excel(name = "巷道", width = 15)
+    @Schema(description = "巷道")
+    private java.lang.String locationAisle;
+	/**排*/
+	@Excel(name = "排", width = 15)
+    @Schema(description = "排")
+    private java.lang.String locationLine;
+	/**列*/
+	@Excel(name = "列", width = 15)
+    @Schema(description = "列")
+    private java.lang.String locationRank;
+	/**层*/
+	@Excel(name = "层", width = 15)
+    @Schema(description = "层")
+    private java.lang.String locationLayer;
+	/**长*/
+	@Excel(name = "长", width = 15)
+    @Schema(description = "长")
+    private java.lang.Double locationLength;
+	/**宽*/
+	@Excel(name = "宽", width = 15)
+    @Schema(description = "宽")
+    private java.lang.Double locationWidth;
+	/**容积*/
+	@Excel(name = "容积", width = 15)
+    @Schema(description = "容积")
+    private java.lang.Double locationCapacity;
+	/**承重*/
+	@Excel(name = "承重", width = 15)
+    @Schema(description = "承重")
+    private java.lang.Double loadCapacity;
+	/**是否可售*/
+	@Excel(name = "是否可售", width = 15, dicCode = "yn")
+	@Dict(dicCode = "yn")
+    @Schema(description = "是否可售")
+    private java.lang.String isSellable;
+    /**仓库名称*/
+    @Excel(name = "仓库名称", width = 15)
+    @Schema(description = "仓库名称")
+    private String warehouseName;
+    /**库区名称*/
+    @Excel(name = "库区名称", width = 15)
+    @Schema(description = "库区名称")
+    private String zoneName;
+}
