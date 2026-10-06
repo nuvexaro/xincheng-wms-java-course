@@ -2,6 +2,7 @@ package org.jeecg.modules.wms.inorder.entity;
 
 import java.io.Serializable;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.TableLogic;
@@ -81,4 +82,14 @@ public class WmsStockInOrderItems implements Serializable {
 	@Excel(name = "状态", width = 15)
     @Schema(description = "状态")
     private String status;
+
+    // ==================== 以下为非数据库字段, 仅用于页面显示 ====================
+    /**商品名称*/
+    @TableField(exist = false)
+    @Schema(description = "商品名称")
+    private String productName;
+    /**商品编码*/
+    @TableField(exist = false)
+    @Schema(description = "商品编码")
+    private String productCode;
 }

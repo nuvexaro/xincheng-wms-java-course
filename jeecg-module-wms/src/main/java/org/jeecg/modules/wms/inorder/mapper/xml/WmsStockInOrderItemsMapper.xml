@@ -3,14 +3,19 @@
 <mapper namespace="org.jeecg.modules.wms.inorder.mapper.WmsStockInOrderItemsMapper">
 
 	<delete id="deleteByMainId" parameterType="java.lang.String">
-		DELETE 
-		FROM  wms_stock_in_order_items 
-		WHERE
-			 order_id = #{mainId} 	</delete>
-	
-	<select id="selectByMainId" parameterType="java.lang.String" resultType="org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems">
-		SELECT * 
+		DELETE
 		FROM  wms_stock_in_order_items
 		WHERE
-			 order_id = #{mainId} 	</select>
+			 order_id = #{mainId}
+	</delete>
+
+	<!-- 关联商品表, 查出商品编码和商品名称(修改入库单页面、打印入库单时显示) -->
+	<select id="selectByMainId" parameterType="java.lang.String" resultType="org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems">
+		SELECT a.*, wp.product_code, wp.product_name
+		FROM  wms_stock_in_order_items a
+		LEFT JOIN wms_products wp ON a.product_id = wp.id
+		WHERE
+			 a.order_id = #{mainId}
+		ORDER BY a.create_time, a.id
+	</select>
 </mapper>

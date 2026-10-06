@@ -73,7 +73,8 @@ public class WmsStockInOrdersController {
 								   HttpServletRequest req) {
         QueryWrapper<WmsStockInOrders> queryWrapper = QueryGenerator.initQueryWrapper(wmsStockInOrders, req.getParameterMap());
 		Page<WmsStockInOrders> page = new Page<WmsStockInOrders>(pageNo, pageSize);
-		IPage<WmsStockInOrders> pageList = wmsStockInOrdersService.page(page, queryWrapper);
+		// pageList 会补全列表里的货主名称、仓库名称
+		IPage<WmsStockInOrders> pageList = wmsStockInOrdersService.pageList(page, queryWrapper);
 		return Result.OK(pageList);
 	}
 
@@ -90,7 +91,8 @@ public class WmsStockInOrdersController {
 	public Result<String> add(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
 		WmsStockInOrders wmsStockInOrders = new WmsStockInOrders();
 		BeanUtils.copyProperties(wmsStockInOrdersPage, wmsStockInOrders);
-		wmsStockInOrdersService.saveMain(wmsStockInOrders, wmsStockInOrdersPage.getWmsStockInOrderItemsList());
+		// 新增入库单只添加入库单主表: 自动生成入库单号, 状态默认为初始; 入库明细在"编辑"里添加
+		wmsStockInOrdersService.add(wmsStockInOrders);
 		return Result.OK("添加成功！");
 	}
 
@@ -107,10 +109,7 @@ public class WmsStockInOrdersController {
 	public Result<String> edit(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
 		WmsStockInOrders wmsStockInOrders = new WmsStockInOrders();
 		BeanUtils.copyProperties(wmsStockInOrdersPage, wmsStockInOrders);
-		WmsStockInOrders wmsStockInOrdersEntity = wmsStockInOrdersService.getById(wmsStockInOrders.getId());
-		if(wmsStockInOrdersEntity==null) {
-			return Result.error("未找到对应数据");
-		}
+		// 入库单是否存在、状态是否允许修改等校验都在 updateMain 里
 		wmsStockInOrdersService.updateMain(wmsStockInOrders, wmsStockInOrdersPage.getWmsStockInOrderItemsList());
 		return Result.OK("编辑成功!");
 	}
@@ -143,6 +142,34 @@ public class WmsStockInOrdersController {
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
 		this.wmsStockInOrdersService.delBatchMain(Arrays.asList(ids.split(",")));
 		return Result.OK("批量删除成功！");
+	}
+
+	/**
+	 * 提交审核: 入库单状态由 初始、审核失败 更新为 提交审核
+	 *
+	 * @param id 入库单id
+	 * @return
+	 */
+	@AutoLog(value = "入库单主表-提交审核")
+	@Operation(summary="入库单主表-提交审核")
+	@PostMapping(value = "/submitAudit")
+	public Result<String> submitAudit(@RequestParam(name="id",required=false) String id) {
+		wmsStockInOrdersService.submitAudit(id);
+		return Result.OK("提交审核成功！");
+	}
+
+	/**
+	 * 审核: 入库单状态由 提交审核 更新为 审核通过 或 审核失败
+	 *
+	 * @param wmsStockInOrders 只用到 id 和 status(审核结果: APPROVED 审核通过, REJECTED 审核失败)
+	 * @return
+	 */
+	@AutoLog(value = "入库单主表-审核")
+	@Operation(summary="入库单主表-审核")
+	@PostMapping(value = "/audit")
+	public Result<String> audit(@RequestBody WmsStockInOrders wmsStockInOrders) {
+		wmsStockInOrdersService.audit(wmsStockInOrders.getId(), wmsStockInOrders.getStatus());
+		return Result.OK("审核成功！");
 	}
 
 	/**

@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.TableLogic;
@@ -104,4 +105,14 @@ public class WmsStockInOrders implements Serializable {
 	@Excel(name = "仓库", width = 15)
     @Schema(description = "仓库")
     private String warehouseId;
+
+    // ==================== 以下为非数据库字段, 仅用于列表显示 ====================
+    /**货主名称*/
+    @TableField(exist = false)
+    @Schema(description = "货主名称")
+    private String ownerName;
+    /**仓库名称*/
+    @TableField(exist = false)
+    @Schema(description = "仓库名称")
+    private String warehouseName;
 }
