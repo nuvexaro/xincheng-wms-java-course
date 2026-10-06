@@ -98,6 +98,10 @@ public enum WarehouseDictEnum {
     INVENTORY_ATTRIBUTE_GOOD("GOOD_PRODUCT", "良品"),
     INVENTORY_ATTRIBUTE_DEFECTIVE("DEFECTIVE_PRODUCT", "不良品"),
 
+    /*是否可售*/
+    INVENTORY_SELLABLE("1", "可售"),
+    INVENTORY_NOTSELLABLE("0", "不可售"),
+
     /* 任务类型 */
     TASK_TYPE_RECEIVING("RECEIVING_TASK", "收货任务"),
     TASK_TYPE_PUTAWAY("PUTAWAY_TASK", "上架任务"),

@@ -95,4 +95,13 @@ public interface IWmsStockInOrdersService extends IService<WmsStockInOrders> {
 	 * @return true: 入库单已收货完成
 	 */
 	boolean updateReceivedStatus(String stockInOrderId);
+
+	/**
+	 * 上架后更新入库单的已上架总量和状态
+	 * 所有明细都上架完成时入库单状态为"上架完成", 否则为"上架中"
+	 *
+	 * @param stockInOrderId 入库单id
+	 * @return true: 入库单已上架完成
+	 */
+	boolean updateShelvedStatus(String stockInOrderId);
 }

@@ -1,30 +1,48 @@
 package org.jeecg.modules.wms.goods.controller;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.jeecg.common.api.vo.Result;
+import org.jeecg.common.system.query.QueryGenerator;
+import org.jeecg.common.system.query.QueryRuleEnum;
+import org.jeecg.common.util.oConvertUtils;
+import org.jeecg.modules.wms.goods.entity.WmsCargoOwners;
+import org.jeecg.modules.wms.goods.service.IWmsCargoOwnersService;
+
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.jeecg.common.api.vo.Result;
-import org.jeecg.common.aspect.annotation.AutoLog;
+
+import org.jeecgframework.poi.excel.ExcelImportUtil;
+import org.jeecgframework.poi.excel.def.NormalExcelConstants;
+import org.jeecgframework.poi.excel.entity.ExportParams;
+import org.jeecgframework.poi.excel.entity.ImportParams;
+import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
 import org.jeecg.common.system.base.controller.JeecgController;
-import org.jeecg.common.system.query.QueryGenerator;
-import org.jeecg.modules.wms.goods.entity.WmsCargoOwners;
-import org.jeecg.modules.wms.goods.service.IWmsCargoOwnersService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
+import com.alibaba.fastjson.JSON;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.jeecg.common.aspect.annotation.AutoLog;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 
-import java.util.Arrays;
-
-/**
+ /**
  * @Description: 货主表
  * @Author: jeecg-boot
- * @Date:   2026-09-29
+ * @Date:   2025-04-13
  * @Version: V1.0
  */
 @Tag(name="货主表")
@@ -34,7 +52,7 @@ import java.util.Arrays;
 public class WmsCargoOwnersController extends JeecgController<WmsCargoOwners, IWmsCargoOwnersService> {
 	@Autowired
 	private IWmsCargoOwnersService wmsCargoOwnersService;
-	
+
 	/**
 	 * 分页列表查询
 	 *
@@ -56,7 +74,7 @@ public class WmsCargoOwnersController extends JeecgController<WmsCargoOwners, IW
 		IPage<WmsCargoOwners> pageList = wmsCargoOwnersService.page(page, queryWrapper);
 		return Result.OK(pageList);
 	}
-	
+
 	/**
 	 *   添加
 	 *
@@ -71,7 +89,7 @@ public class WmsCargoOwnersController extends JeecgController<WmsCargoOwners, IW
 		wmsCargoOwnersService.add(wmsCargoOwners);
 		return Result.OK("添加成功！");
 	}
-	
+
 	/**
 	 *  编辑
 	 *
@@ -83,10 +101,10 @@ public class WmsCargoOwnersController extends JeecgController<WmsCargoOwners, IW
 	@RequiresPermissions("goods:wms_cargo_owners:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsCargoOwners wmsCargoOwners) {
-		wmsCargoOwnersService.updateById(wmsCargoOwners);
+		wmsCargoOwnersService.edit(wmsCargoOwners);
 		return Result.OK("编辑成功!");
 	}
-	
+
 	/**
 	 *   通过id删除
 	 *
@@ -101,7 +119,7 @@ public class WmsCargoOwnersController extends JeecgController<WmsCargoOwners, IW
 		wmsCargoOwnersService.removeById(id);
 		return Result.OK("删除成功!");
 	}
-	
+
 	/**
 	 *  批量删除
 	 *
@@ -116,7 +134,7 @@ public class WmsCargoOwnersController extends JeecgController<WmsCargoOwners, IW
 		this.wmsCargoOwnersService.removeByIds(Arrays.asList(ids.split(",")));
 		return Result.OK("批量删除成功!");
 	}
-	
+
 	/**
 	 * 通过id查询
 	 *

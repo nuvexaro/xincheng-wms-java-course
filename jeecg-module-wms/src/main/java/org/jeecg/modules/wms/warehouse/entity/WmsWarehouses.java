@@ -22,7 +22,7 @@ import lombok.experimental.Accessors;
 /**
  * @Description: 仓库表
  * @Author: jeecg-boot
- * @Date:   2026-09-29
+ * @Date:   2025-04-10
  * @Version: V1.0
  */
 @Data
@@ -69,9 +69,9 @@ public class WmsWarehouses implements Serializable {
 	@Dict(dicCode = "warehouse_attr")
     @Schema(description = "仓库属性")
     private String warehouseAttr;
-	/**状态: 创建,启动,禁用*/
-	@Excel(name = "状态: 创建,启动,禁用", width = 15, dicCode = "wms_status")
+	/**状态:创建,启用,禁用*/
+	@Excel(name = "状态:创建,启用,禁用", width = 15, dicCode = "dict_item_status")
 	@Dict(dicCode = "wms_status")
-    @Schema(description = "状态: 创建,启动,禁用")
+    @Schema(description = "状态:创建,启用,禁用")
     private String status;
 }

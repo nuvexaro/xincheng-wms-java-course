@@ -22,7 +22,7 @@ import lombok.experimental.Accessors;
 /**
  * @Description: 货主表
  * @Author: jeecg-boot
- * @Date:   2026-09-29
+ * @Date:   2025-04-13
  * @Version: V1.0
  */
 @Data
@@ -129,7 +129,7 @@ public class WmsCargoOwners implements Serializable {
     private String settlementCurrency;
 	/**状态*/
 	@Excel(name = "状态", width = 15, dicCode = "dict_item_status")
-	@Dict(dicCode = "dict_item_status")
+	@Dict(dicCode = "wms_status")
     @Schema(description = "状态")
     private String status;
 	/**备注*/

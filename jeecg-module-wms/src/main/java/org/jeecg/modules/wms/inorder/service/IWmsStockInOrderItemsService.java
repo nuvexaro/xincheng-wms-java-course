@@ -27,4 +27,12 @@ public interface IWmsStockInOrderItemsService extends IService<WmsStockInOrderIt
 	 * @param stockInOrderItemId 入库单明细id
 	 */
 	void updateReceivedStatus(String stockInOrderItemId);
+
+	/**
+	 * 上架后更新入库单明细的上架数量和状态
+	 * 上架数量 = 收货数量(良品)时状态为"上架完成"; 没上架完时状态不变(明细没有"上架中"这个状态)
+	 *
+	 * @param stockInOrderItemId 入库单明细id
+	 */
+	void updateShelvedStatus(String stockInOrderItemId);
 }

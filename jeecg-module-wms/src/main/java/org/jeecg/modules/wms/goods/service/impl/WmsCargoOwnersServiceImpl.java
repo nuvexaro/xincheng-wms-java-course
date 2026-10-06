@@ -1,6 +1,5 @@
 package org.jeecg.modules.wms.goods.service.impl;
 
-import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.util.RedisUtil;
 import org.jeecg.modules.wms.goods.entity.WmsCargoOwners;
 import org.jeecg.modules.wms.goods.mapper.WmsCargoOwnersMapper;
@@ -9,46 +8,46 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @Description: 货主表
  * @Author: jeecg-boot
- * @Date:   2026-09-29
+ * @Date:   2025-04-13
  * @Version: V1.0
  */
 @Service
-public class WmsCargoOwnersServiceImpl
-        extends ServiceImpl<WmsCargoOwnersMapper, WmsCargoOwners>
-        implements IWmsCargoOwnersService {
-
+public class WmsCargoOwnersServiceImpl extends ServiceImpl<WmsCargoOwnersMapper, WmsCargoOwners> implements IWmsCargoOwnersService {
     @Autowired
     private RedisUtil redisUtil;
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public void add(WmsCargoOwners wmsCargoOwners) {
-
-        // 自动生成货主编码
+        //生成货主编码
         wmsCargoOwners.setOwnerCode(generateOwnerCode());
-
         save(wmsCargoOwners);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void edit(WmsCargoOwners wmsCargoOwners) {
+        updateById(wmsCargoOwners);
     }
 
     /**
      * 生成货主编码
+     * @return
      */
+    @Override
     public String generateOwnerCode() {
-
-        long incr = 0;
-
+        //编码规则：C+5位序号，序号使用redis自增序号实现
+        String code = "C";
         try {
-            incr = redisUtil.incr("WMS_CARGO_OWNERS_CODE", 1);
+            code += String.format("%05d", redisUtil.incr("WMS_CARGO_OWNERS_CODE", 1));
         } catch (Exception e) {
-            throw new JeecgBootException("生成编码失败");
+            e.printStackTrace();
         }
-
-        String code = "C" + String.format("%05d", incr);
-
         return code;
     }
 }
-

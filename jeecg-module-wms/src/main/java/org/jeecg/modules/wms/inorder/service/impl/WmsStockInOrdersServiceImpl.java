@@ -475,4 +475,61 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 		}
 		return isCompleted;
 	}
+
+	// ============================== 上架 ==============================
+
+	/**
+	 * 上架后更新入库单的已上架总量和状态
+	 *
+	 * @param stockInOrderId 入库单id
+	 * @return true: 入库单已上架完成
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public boolean updateShelvedStatus(String stockInOrderId) {
+		//1.收货完成、上架中状态的入库单方可更新上架状态
+		if (oConvertUtils.isEmpty(stockInOrderId)) {
+			throw new JeecgBootException("入库单id不能为空");
+		}
+		WmsStockInOrders stockInOrders = wmsStockInOrdersMapper.selectById(stockInOrderId);
+		if (stockInOrders == null) {
+			throw new JeecgBootException("入库单不存在");
+		}
+		if (!WarehouseDictEnum.INBOUND_RECEIVED.getCode().equals(stockInOrders.getStatus())
+				&& !WarehouseDictEnum.INBOUND_PUTAWAYING.getCode().equals(stockInOrders.getStatus())) {
+			throw new JeecgBootException("入库单" + stockInOrders.getOrderNumber() + "不是收货完成或上架中状态, 不允许更新上架状态");
+		}
+
+		//2.根据入库单id查询入库单明细列表
+		List<WmsStockInOrderItems> itemsList = wmsStockInOrderItemsMapper.selectByMainId(stockInOrderId);
+		if (itemsList == null || itemsList.isEmpty()) {
+			throw new JeecgBootException("入库单" + stockInOrders.getOrderNumber() + "没有入库明细");
+		}
+
+		//3.计算已上架总量, 并判断是否所有明细都上架完成
+		int shelvedCount = 0;
+		boolean isCompleted = true;
+		for (WmsStockInOrderItems item : itemsList) {
+			shelvedCount += item.getShelvedQuantity() == null ? 0 : item.getShelvedQuantity();
+			// 收货数量(良品)为 0 的明细没有东西可上架, 不影响入库单是否上架完成
+			int receivedQuantity = item.getReceivedQuantity() == null ? 0 : item.getReceivedQuantity();
+			if (receivedQuantity > 0 && !WarehouseDictEnum.INBOUND_DETAIL_PUTAWAYED.getCode().equals(item.getStatus())) {
+				isCompleted = false;
+			}
+		}
+
+		//4.更新入库单: 只设置需要更新的字段
+		WmsStockInOrders updateOrder = new WmsStockInOrders();
+		updateOrder.setId(stockInOrderId);
+		updateOrder.setTotalShelvedQuantity(shelvedCount);
+		//  入库单明细全部上架完成, 则入库单状态为上架完成, 否则为上架中
+		updateOrder.setStatus(isCompleted
+				? WarehouseDictEnum.INBOUND_PUTAWAYED.getCode()
+				: WarehouseDictEnum.INBOUND_PUTAWAYING.getCode());
+		boolean updated = updateById(updateOrder);
+		if (!updated) {
+			throw new JeecgBootException("更新入库单失败");
+		}
+		return isCompleted;
+	}
 }

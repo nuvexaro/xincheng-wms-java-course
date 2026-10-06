@@ -94,4 +94,52 @@ public class WmsStockInOrderItemsServiceImpl extends ServiceImpl<WmsStockInOrder
 			throw new JeecgBootException("更新入库明细的收货数量和状态失败");
 		}
 	}
+
+	/**
+	 * 上架后更新入库单明细的上架数量和状态
+	 *
+	 * @param stockInOrderItemId 入库单明细id
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void updateShelvedStatus(String stockInOrderItemId) {
+		//1.通过id查询入库明细是否存在
+		if (oConvertUtils.isEmpty(stockInOrderItemId)) {
+			throw new JeecgBootException("入库明细id不能为空");
+		}
+		WmsStockInOrderItems item = getById(stockInOrderItemId);
+		if (item == null) {
+			throw new JeecgBootException("入库明细不存在");
+		}
+
+		//2.查询这条明细的所有"上架"记录, 累加得到上架数量
+		List<WmsTasksRecords> recordsList = wmsTasksRecordsMapper.selectList(new LambdaQueryWrapper<WmsTasksRecords>()
+				.eq(WmsTasksRecords::getStockInOrderItemId, stockInOrderItemId)
+				.eq(WmsTasksRecords::getTaskType, WarehouseDictEnum.TASK_TYPE_PUTAWAY.getCode()));
+		int shelvedCount = 0;
+		if (recordsList != null) {
+			for (WmsTasksRecords record : recordsList) {
+				shelvedCount += record.getExecQuantity() == null ? 0 : record.getExecQuantity();
+			}
+		}
+
+		//3.上架数量不能大于收货数量(良品才上架)
+		int receivedQuantity = item.getReceivedQuantity() == null ? 0 : item.getReceivedQuantity();
+		if (shelvedCount > receivedQuantity) {
+			throw new JeecgBootException("上架数量不能大于收货数量");
+		}
+
+		//4.更新: 只设置需要更新的字段
+		WmsStockInOrderItems updateItem = new WmsStockInOrderItems();
+		updateItem.setId(stockInOrderItemId);
+		updateItem.setShelvedQuantity(shelvedCount);
+		// 上架数量 = 收货数量时上架完成
+		if (shelvedCount == receivedQuantity) {
+			updateItem.setStatus(WarehouseDictEnum.INBOUND_DETAIL_PUTAWAYED.getCode());
+		}
+		boolean updated = updateById(updateItem);
+		if (!updated) {
+			throw new JeecgBootException("更新入库明细的上架数量和状态失败");
+		}
+	}
 }
