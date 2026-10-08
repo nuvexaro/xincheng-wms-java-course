@@ -21,6 +21,18 @@
             <artifactId>pagehelper</artifactId>
             <version>6.1.1</version>
         </dependency>
+        <!-- Excel 导入导出: 由于项目中用了 poi 4.1.2, 而最新版 easyexcel 4.x 依赖 poi 5.2, 所以这里用 easyexcel 3.3.4 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>3.3.4</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>poi-ooxml-schemas</artifactId>
+                    <groupId>org.apache.poi</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
 </project>

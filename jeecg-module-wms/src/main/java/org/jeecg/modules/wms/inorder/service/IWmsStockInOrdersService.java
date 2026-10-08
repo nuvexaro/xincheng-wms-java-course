@@ -28,6 +28,13 @@ public interface IWmsStockInOrdersService extends IService<WmsStockInOrders> {
 	IPage<WmsStockInOrders> pageList(Page<WmsStockInOrders> page, Wrapper<WmsStockInOrders> queryWrapper);
 
 	/**
+	 * 批量补全货主名称、仓库名称(入库单表里只存了货主id、仓库id)
+	 *
+	 * @param records 入库单列表
+	 */
+	void fillOwnerAndWarehouseName(List<WmsStockInOrders> records);
+
+	/**
 	 * 添加入库单: 只添加入库单主表, 自动生成入库单号, 状态为初始
 	 *
 	 * @param wmsStockInOrders 入库单

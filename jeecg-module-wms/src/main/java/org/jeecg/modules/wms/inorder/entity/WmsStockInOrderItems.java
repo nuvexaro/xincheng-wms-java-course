@@ -55,7 +55,6 @@ public class WmsStockInOrderItems implements Serializable {
     @Schema(description = "入库单id")
     private String orderId;
 	/**商品id*/
-	@Excel(name = "商品id", width = 15)
     @Schema(description = "商品id")
     private String productId;
 	/**采购数量*/
@@ -79,17 +78,19 @@ public class WmsStockInOrderItems implements Serializable {
     @Schema(description = "备注")
     private String remarks;
 	/**状态*/
-	@Excel(name = "状态", width = 15)
+	@Excel(name = "状态", width = 15, dicCode = "asn_item_status")
     @Schema(description = "状态")
     private String status;
 
     // ==================== 以下为非数据库字段, 仅用于页面显示 ====================
     /**商品名称*/
     @TableField(exist = false)
+    @Excel(name = "商品名称", width = 25)
     @Schema(description = "商品名称")
     private String productName;
     /**商品编码*/
     @TableField(exist = false)
+    @Excel(name = "商品编码", width = 20)
     @Schema(description = "商品编码")
     private String productCode;
 }

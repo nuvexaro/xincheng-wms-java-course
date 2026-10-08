@@ -12,6 +12,7 @@ import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.aspect.annotation.AutoLog;
+import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.vo.LoginUser;
 import org.jeecg.common.util.oConvertUtils;
@@ -24,6 +25,7 @@ import org.jeecgframework.poi.excel.ExcelImportUtil;
 import org.jeecgframework.poi.excel.def.NormalExcelConstants;
 import org.jeecgframework.poi.excel.entity.ExportParams;
 import org.jeecgframework.poi.excel.entity.ImportParams;
+import org.jeecgframework.poi.excel.entity.enmus.ExcelType;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -225,6 +227,8 @@ public class WmsStockInOrdersController {
       }
       //Step.2 获取导出数据
       List<WmsStockInOrders> wmsStockInOrdersList = wmsStockInOrdersService.list(queryWrapper);
+      // 补全货主名称、仓库名称
+      wmsStockInOrdersService.fillOwnerAndWarehouseName(wmsStockInOrdersList);
 
       // Step.3 组装pageList
       List<WmsStockInOrdersPage> pageList = new ArrayList<WmsStockInOrdersPage>();
@@ -241,6 +245,42 @@ public class WmsStockInOrdersController {
       mv.addObject(NormalExcelConstants.FILE_NAME, "入库单主表列表");
       mv.addObject(NormalExcelConstants.CLASS, WmsStockInOrdersPage.class);
       mv.addObject(NormalExcelConstants.PARAMS, new ExportParams("入库单主表数据", "导出人:"+sysUser.getRealname(), "入库单主表"));
+      mv.addObject(NormalExcelConstants.DATA_LIST, pageList);
+      return mv;
+    }
+
+    /**
+    * 导出单个入库单(入库单信息 + 入库明细), 对应入库单页面上的"导出"按钮, 导出为 xlsx 格式
+    *
+    * @param orderId 入库单id
+    */
+    @RequestMapping(value = "/download")
+    public ModelAndView download(@RequestParam(name="orderId",required=true) String orderId) {
+      // Step.1 查询入库单, 补全货主名称、仓库名称
+      WmsStockInOrders main = wmsStockInOrdersService.getById(orderId);
+      if (main == null) {
+          throw new JeecgBootException("未找到对应数据");
+      }
+      List<WmsStockInOrders> mainList = new ArrayList<WmsStockInOrders>();
+      mainList.add(main);
+      wmsStockInOrdersService.fillOwnerAndWarehouseName(mainList);
+
+      // Step.2 组装导出数据: 入库单 + 入库明细(带商品编码、商品名称)
+      WmsStockInOrdersPage vo = new WmsStockInOrdersPage();
+      BeanUtils.copyProperties(main, vo);
+      vo.setWmsStockInOrderItemsList(wmsStockInOrderItemsService.selectByMainId(orderId));
+      List<WmsStockInOrdersPage> pageList = new ArrayList<WmsStockInOrdersPage>();
+      pageList.add(vo);
+
+      // Step.3 AutoPoi 导出Excel(前端按 xlsx 保存, 所以这里指定导出 xlsx 格式)
+      LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+      String exporter = sysUser == null ? "" : sysUser.getRealname();
+      ExportParams exportParams = new ExportParams("入库单", "导出人:" + exporter, "入库单");
+      exportParams.setType(ExcelType.XSSF);
+      ModelAndView mv = new ModelAndView(new JeecgEntityExcelView());
+      mv.addObject(NormalExcelConstants.FILE_NAME, "入库单" + main.getOrderNumber());
+      mv.addObject(NormalExcelConstants.CLASS, WmsStockInOrdersPage.class);
+      mv.addObject(NormalExcelConstants.PARAMS, exportParams);
       mv.addObject(NormalExcelConstants.DATA_LIST, pageList);
       return mv;
     }

@@ -1,5 +1,6 @@
 package org.jeecg.modules.wms.inorder.service.impl;
 
+import jakarta.annotation.Resource;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.util.RedisUtil;
 import org.jeecg.common.util.oConvertUtils;
@@ -53,9 +54,9 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	/** 日期格式: 年月日 */
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-	@Autowired
+	@Resource
 	private WmsStockInOrdersMapper wmsStockInOrdersMapper;
-	@Autowired
+	@Resource
 	private WmsStockInOrderItemsMapper wmsStockInOrderItemsMapper;
 	@Autowired
 	private IWmsCargoOwnersService wmsCargoOwnersService;
@@ -79,7 +80,8 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	/**
 	 * 批量补全货主名称、仓库名称: 先收集当前页用到的id, 各查一次数据库, 再回填
 	 */
-	private void fillOwnerAndWarehouseName(List<WmsStockInOrders> records) {
+	@Override
+	public void fillOwnerAndWarehouseName(List<WmsStockInOrders> records) {
 		if (records == null || records.isEmpty()) {
 			return;
 		}

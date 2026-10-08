@@ -58,9 +58,12 @@ public class WmsStockInOrdersPage {
 	@Schema(description = "来源单号")
     private String sourceNumber;
 	/**货主id*/
-	@Excel(name = "货主id", width = 15)
 	@Schema(description = "货主id")
     private String ownerId;
+	/**货主名称*/
+	@Excel(name = "货主", width = 20)
+	@Schema(description = "货主名称")
+    private String ownerName;
 	/**预计到货时间*/
 	@Excel(name = "预计到货时间", width = 20, format = "yyyy-MM-dd HH:mm:ss")
 	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
@@ -92,10 +95,13 @@ public class WmsStockInOrdersPage {
 	@Excel(name = "不良品总数量(冗余字段)", width = 15)
 	@Schema(description = "不良品总数量(冗余字段)")
     private Integer totalDefectiveQuantity;
-	/**仓库*/
-	@Excel(name = "仓库", width = 15)
+	/**仓库id*/
 	@Schema(description = "仓库")
     private String warehouseId;
+	/**仓库名称*/
+	@Excel(name = "仓库", width = 20)
+	@Schema(description = "仓库名称")
+    private String warehouseName;
 
 	@ExcelCollection(name="入库单明细")
 	@Schema(description = "入库单明细")
