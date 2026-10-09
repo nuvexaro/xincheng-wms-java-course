@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.wms.inventory.mapper.WmsInventoryMapper">
+
+    <!--
+        库存查询的公共部分: 查询的列、关联的表、查询条件
+        库存必须和商品、货主、仓库、储位、储区都匹配上才显示, 所以用内连接
+    -->
+    <sql id="inventoryQuery">
+        select a.*, ww.warehouse_name, wco.owner_code, wco.owner_name, wp.product_code, wp.product_name,
+               wsl.location_type, wsz.zone_type
+        from wms_inventory a
+        inner join wms_products wp on a.product_id = wp.id
+        inner join wms_cargo_owners wco on wp.owner_id = wco.id
+        inner join wms_warehouses ww on a.warehouse_id = ww.id
+        inner join wms_storage_locations wsl on a.location_code = wsl.location_code and a.warehouse_id = wsl.warehouse_id
+        inner join wms_storage_zones wsz on wsl.zone_id = wsz.id
+        <where>
+            <!-- 货主编码 -->
+            <if test="inv.ownerCode != null and inv.ownerCode != ''">
+                and wco.owner_code = #{inv.ownerCode}
+            </if>
+            <!-- 货主名称: 模糊查询 -->
+            <if test="inv.ownerName != null and inv.ownerName != ''">
+                and wco.owner_name like concat('%', #{inv.ownerName}, '%')
+            </if>
+            <!-- 商品编码 -->
+            <if test="inv.productCode != null and inv.productCode != ''">
+                and wp.product_code = #{inv.productCode}
+            </if>
+            <!-- 商品名称: 模糊查询 -->
+            <if test="inv.productName != null and inv.productName != ''">
+                and wp.product_name like concat('%', #{inv.productName}, '%')
+            </if>
+            <!-- 储位编码 -->
+            <if test="inv.locationCode != null and inv.locationCode != ''">
+                and a.location_code = #{inv.locationCode}
+            </if>
+            <!-- 储区类型 -->
+            <if test="inv.zoneType != null and inv.zoneType != ''">
+                and wsz.zone_type = #{inv.zoneType}
+            </if>
+            <!-- 仓库 -->
+            <if test="inv.warehouseId != null and inv.warehouseId != ''">
+                and a.warehouse_id = #{inv.warehouseId}
+            </if>
+            <!-- 商品id -->
+            <if test="inv.productId != null and inv.productId != ''">
+                and a.product_id = #{inv.productId}
+            </if>
+            <!-- 只查勾选的库存 -->
+            <if test="ids != null and ids.size() > 0">
+                and a.id in
+                <foreach collection="ids" item="id" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </if>
+        </where>
+        order by a.create_time desc, a.id desc
+    </sql>
+
+    <!-- 分页查询库存 -->
+    <select id="selectPageList" resultType="org.jeecg.modules.wms.inventory.entity.WmsInventory">
+        <include refid="inventoryQuery"/>
+    </select>
+
+    <!-- 查询要导出的库存: 不分页, 最多 10000 条 -->
+    <select id="selectExportList" resultType="org.jeecg.modules.wms.inventory.entity.WmsInventory">
+        <include refid="inventoryQuery"/>
+        limit 10000
+    </select>
+
+    <!-- 查询可分配的库存: 排序 = 分配顺序(先到期先出, 其次先进先出) -->
+    <select id="selectAllocatableList" resultType="org.jeecg.modules.wms.inventory.entity.WmsInventory">
+        select a.*
+        from wms_inventory a
+        where a.product_id = #{productId}
+          and a.warehouse_id = #{warehouseId}
+          and a.is_sellable = '1'
+          and ifnull(a.available_quantity, 0) > 0
+        <if test="batchNumber != null and batchNumber != ''">
+            and a.batch_number = #{batchNumber}
+        </if>
+        order by case when a.expiry_date is null then 1 else 0 end, a.expiry_date asc, a.stock_in_time asc, a.id asc
+    </select>
+
+    <!-- 锁定库存: where 里带上"可用数量足够"的条件, 不够时影响行数为 0 -->
+    <update id="lockStock">
+        update wms_inventory
+        set available_quantity = available_quantity - #{quantity},
+            allocated_quantity = ifnull(allocated_quantity, 0) + #{quantity},
+            update_time = #{now}
+        where id = #{id}
+          and ifnull(available_quantity, 0) >= #{quantity}
+    </update>
+
+    <!-- 增加库存 -->
+    <update id="increaseStock">
+        update wms_inventory
+        set stock_quantity = stock_quantity + #{quantity},
+            available_quantity = ifnull(available_quantity, 0) + #{availableQuantity},
+            update_time = #{now}
+        where id = #{id}
+    </update>
+
+    <!-- 扣减库存: where 里带上"数量足够"的条件, 不够时影响行数为 0 -->
+    <update id="decreaseStock">
+        update wms_inventory
+        set stock_quantity = stock_quantity - #{quantity},
+            available_quantity = ifnull(available_quantity, 0) - #{quantity},
+            update_time = #{now}
+        where id = #{id}
+          and stock_quantity >= #{quantity}
+          and ifnull(available_quantity, 0) >= #{quantity}
+    </update>
+</mapper>

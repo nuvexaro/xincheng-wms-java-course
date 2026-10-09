@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.wms.wmstask.mapper.WmsTasksMapper">
+
+    <!-- 分页查询任务列表: 关联查询仓库名称、商品名称、货主名称、入库单号 -->
+    <select id="selectPageList" resultType="org.jeecg.modules.wms.wmstask.entity.WmsTasks">
+        select a.*, ww.warehouse_name, b.product_name, wco.owner_name, wsio.order_number as stock_in_order_number
+        from wms_tasks a
+        left join wms_warehouses ww on a.target_warehouse_id = ww.id
+        left join wms_products b on a.product_id = b.id
+        left join wms_cargo_owners wco on b.owner_id = wco.id
+        left join wms_stock_in_orders wsio on a.stock_in_order_id = wsio.id
+        <where>
+            <!-- 任务号 -->
+            <if test="task.taskNumber != null and task.taskNumber != ''">
+                and a.task_number = #{task.taskNumber}
+            </if>
+            <!-- 任务类型 -->
+            <if test="task.taskType != null and task.taskType != ''">
+                and a.task_type = #{task.taskType}
+            </if>
+            <!-- 任务状态 -->
+            <if test="task.taskStatus != null and task.taskStatus != ''">
+                and a.task_status = #{task.taskStatus}
+            </if>
+            <!-- 入库单号 -->
+            <if test="task.stockInOrderNumber != null and task.stockInOrderNumber != ''">
+                and wsio.order_number = #{task.stockInOrderNumber}
+            </if>
+            <!-- 入库单id -->
+            <if test="task.stockInOrderId != null and task.stockInOrderId != ''">
+                and a.stock_in_order_id = #{task.stockInOrderId}
+            </if>
+            <!-- 波次单id -->
+            <if test="task.waveOrderId != null and task.waveOrderId != ''">
+                and a.wave_order_id = #{task.waveOrderId}
+            </if>
+            <!-- 执行人 -->
+            <if test="task.operator != null and task.operator != ''">
+                and a.operator = #{task.operator}
+            </if>
+        </where>
+        order by a.create_time desc, a.task_number desc
+    </select>
+
+    <!--
+        累加已完成数量并同步更新任务状态
+        1. where 里的 "已完成数量 + 本次数量 <= 计划数量" 保证并发时也不会超量
+        2. 状态、完成时间写在 completed_quantity 之前, 这样它们用的是"累加前"的旧值来判断
+        3. 状态值与 WarehouseDictEnum 里的任务状态一致: CREATED/ASSIGNED/EXECUTING/COMPLETED
+    -->
+    <update id="increaseCompletedQuantity">
+        update wms_tasks
+        set task_status = case when ifnull(completed_quantity, 0) + #{execQuantity} >= quantity then 'COMPLETED' else 'EXECUTING' end,
+            completed_at = case when ifnull(completed_quantity, 0) + #{execQuantity} >= quantity then #{now} else completed_at end,
+            operation_time = #{now},
+            update_time = #{now},
+            completed_quantity = ifnull(completed_quantity, 0) + #{execQuantity}
+        where id = #{id}
+          and ifnull(completed_quantity, 0) + #{execQuantity} &lt;= quantity
+          and task_status in ('CREATED', 'ASSIGNED', 'EXECUTING')
+    </update>
+</mapper>

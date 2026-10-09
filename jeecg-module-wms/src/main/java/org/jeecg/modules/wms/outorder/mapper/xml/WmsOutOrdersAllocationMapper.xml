@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.wms.outorder.mapper.WmsOutOrdersAllocationMapper">
+
+    <delete id="deleteByMainId">
+        delete from wms_out_orders_allocation where order_id = #{mainId}
+    </delete>
+
+    <!-- 关联商品表, 查出商品名称 -->
+    <select id="selectByMainId" resultType="org.jeecg.modules.wms.outorder.entity.WmsOutOrdersAllocation">
+        select a.*, wp.product_name
+        from wms_out_orders_allocation a
+        left join wms_products wp on a.sku_id = wp.id
+        where a.order_id = #{mainId}
+        order by a.create_time, a.id
+    </select>
+</mapper>

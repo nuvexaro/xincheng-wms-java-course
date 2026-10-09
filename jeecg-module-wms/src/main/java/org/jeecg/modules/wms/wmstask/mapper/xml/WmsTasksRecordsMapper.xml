@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.wms.wmstask.mapper.WmsTasksRecordsMapper">
+
+    <!-- 分页查询任务执行记录: 关联查询仓库名称、商品名称、货主名称、入库单号 -->
+    <select id="queryList" resultType="org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords">
+        select a.*, ww.warehouse_name, b.product_name, wco.owner_name, wsio.order_number as stock_in_order_number
+        from wms_tasks_records a
+        left join wms_warehouses ww on a.target_warehouse_id = ww.id
+        left join wms_products b on a.product_id = b.id
+        left join wms_cargo_owners wco on b.owner_id = wco.id
+        left join wms_stock_in_orders wsio on a.stock_in_order_id = wsio.id
+        <where>
+            <!-- 任务号 -->
+            <if test="record.taskNumber != null and record.taskNumber != ''">
+                and a.task_number = #{record.taskNumber}
+            </if>
+            <!-- 任务类型 -->
+            <if test="record.taskType != null and record.taskType != ''">
+                and a.task_type = #{record.taskType}
+            </if>
+            <!-- 任务id -->
+            <if test="record.taskId != null and record.taskId != ''">
+                and a.task_id = #{record.taskId}
+            </if>
+            <!-- 入库单号 -->
+            <if test="record.stockInOrderNumber != null and record.stockInOrderNumber != ''">
+                and wsio.order_number = #{record.stockInOrderNumber}
+            </if>
+            <!-- 执行人 -->
+            <if test="record.operator != null and record.operator != ''">
+                and a.operator = #{record.operator}
+            </if>
+        </where>
+        order by a.operation_time desc, a.create_time desc
+    </select>
+</mapper>
