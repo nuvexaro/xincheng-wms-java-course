@@ -1,53 +1,128 @@
 package org.jeecg.modules.wms.outorder.service;
 
-import java.util.List;
-
-import org.jeecg.modules.wms.outorder.entity.WmsOutOrders;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.apache.ibatis.annotations.Param;
+import org.jeecg.common.api.vo.Result;
+import org.jeecg.modules.wms.inventory.entity.WmsInventory;
 import org.jeecg.modules.wms.outorder.entity.WmsOutOrdersAllocation;
 import org.jeecg.modules.wms.outorder.entity.WmsOutOrdersItems;
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.jeecg.modules.wms.outorder.entity.WmsOutOrders;
 import com.baomidou.mybatisplus.extension.service.IService;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.List;
 
 /**
- * @Description: 出库单主表
+ * @Description: 出库单
+ * @Author: jeecg-boot
+ * @Date:   2025-05-19
  * @Version: V1.0
  */
 public interface IWmsOutOrdersService extends IService<WmsOutOrders> {
 
-    /** 分页查询出库单(补全货主名称) */
-    IPage<WmsOutOrders> pageList(Page<WmsOutOrders> page, Wrapper<WmsOutOrders> queryWrapper);
+	/**
+	 * 分页查询列表
+	 */
+	public IPage<WmsOutOrders> queryList(WmsOutOrders wmsOutOrders, Integer pageNo, Integer pageSize);
 
-    /** 通过出库单id查询出库单明细(带商品名称) */
-    List<WmsOutOrdersItems> selectItemsByMainId(String orderId);
+	/**
+	 * 添加一对多
+	 *
+	 * @param wmsOutOrders
+	 * @param wmsOutOrdersItemsList
+	 */
+	public void saveMain(WmsOutOrders wmsOutOrders,List<WmsOutOrdersItems> wmsOutOrdersItemsList) ;
 
-    /** 通过出库单id查询库存分配明细(带商品名称) */
-    List<WmsOutOrdersAllocation> selectAllocationByMainId(String orderId);
+	/**
+	 * 新增出库单
+	 */
+	public void add(WmsOutOrders wmsOutOrders);
+	/**
+	 * 修改一对多
+	 *
+   * @param wmsOutOrders
+   * @param wmsOutOrdersItemsList
+	 */
+	public void updateMain(WmsOutOrders wmsOutOrders,List<WmsOutOrdersItems> wmsOutOrdersItemsList);
 
-    /** 创建出库单: 只添加出库单主表, 自动生成出库单号, 状态为已创建 */
-    void add(WmsOutOrders wmsOutOrders);
+	/**
+	 * 删除一对多
+	 *
+	 * @param id
+	 */
+	public void delMain (String id);
 
-    /** 修改出库单: 出库单修改数据, 出库单明细先删除再添加 */
-    void updateMain(WmsOutOrders wmsOutOrders, List<WmsOutOrdersItems> itemsList);
+	/**
+	 * 批量删除一对多
+	 *
+	 * @param idList
+	 */
+	public void delBatchMain (Collection<? extends Serializable> idList);
 
-    /** 删除出库单: 已创建状态直接删除, 审核失败状态更新为已取消, 其它状态不允许删除 */
-    void delMain(String id);
+	/**
+	 * 生成出库单号
+	 */
+	public String generateOrderNumber();
 
-    /** 批量删除出库单, ids 多个以逗号分割 */
-    void delBatchMain(String ids);
+	/**
+	 * 分配库存
+	 * @param orderId 出库单ID
+	 * @return 分配状态 ："ALLOCATED"-分配成功 分配失败 "ALLOCATED_FAILED"-分配失败
+	 */
+	String allocateStock(String orderId);
 
-    /** 提交审核: 已创建、审核失败 -> 提交审核 */
+	/**
+	 * 通过主表id查询子表数据
+	 *
+	 * @param mainId
+	 * @return List<WmsOutOrders>
+	 */
+	public List<WmsOutOrders> selectByMainId(String mainId);
+
+	/**
+	 * 根据波次id查询出库单
+	 */
+	List<WmsOutOrders> selectByWaveId(String waveId);
+
+	/**
+	 * 获取未分配波次的出库单,状态为已分配 ALLOCATED
+	 */
+	public List<WmsOutOrders> selectUnassignedOrders(String warehouseId);
+
+	/**
+	 * 根据出库单id更新订单的波次ID
+	 */
+	public void batchUpdateWaveId( List<String> orderIds, String waveId, String shipmentStrategy);
+
+	/**
+	 * 更新出库单分配状态
+	 */
+	public String updateAllocateStatus(String orderId);
+
+	/**
+	 * 更新出库单的拣货状态
+	 */
+	public void updatePickStatus(List<String> orderIds);
+
+
+	/**
+	 * 提交审核
+	 * @param id
+	 */
     void submitAudit(String id);
 
-    /** 审核: 提交审核 -> 审核通过 / 审核失败 */
-    void audit(String id, String status);
+	/**
+	 * 审核出库单
+	 * @param wmsOutOrders
+	 */
+	void audit(WmsOutOrders wmsOutOrders);
 
-    /**
-     * 分配库存: 给出库单的每条明细找到库存并锁定
-     *
-     * @param ids 出库单id, 多个以逗号分割
-     * @return 给用户看的结果说明
-     */
-    String allocateStock(String ids);
+	/**
+	 * 为商品分配库存(课件 3.3)
+	 * @param item 需分配的出库明细
+	 * @param availableStocks 可用库存明细
+	 */
+	public void allocateStockToItems(WmsOutOrdersItems item, List<WmsInventory> availableStocks);
 }

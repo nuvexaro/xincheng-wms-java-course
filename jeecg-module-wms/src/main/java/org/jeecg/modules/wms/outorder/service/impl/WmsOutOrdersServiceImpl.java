@@ -1,522 +1,448 @@
 package org.jeecg.modules.wms.outorder.service.impl;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.jeecg.common.constant.ProvinceCityArea;
-import org.jeecg.common.exception.JeecgBootException;
-import org.jeecg.common.util.RedisUtil;
-import org.jeecg.common.util.oConvertUtils;
-import org.jeecg.modules.wms.config.WarehouseDictEnum;
-import org.jeecg.modules.wms.goods.entity.WmsCargoOwners;
-import org.jeecg.modules.wms.goods.service.IWmsCargoOwnersService;
-import org.jeecg.modules.wms.inventory.entity.WmsInventory;
-import org.jeecg.modules.wms.inventory.service.IWmsInventoryService;
-import org.jeecg.modules.wms.outorder.entity.WmsOutOrders;
-import org.jeecg.modules.wms.outorder.entity.WmsOutOrdersAllocation;
-import org.jeecg.modules.wms.outorder.entity.WmsOutOrdersItems;
-import org.jeecg.modules.wms.outorder.mapper.WmsOutOrdersAllocationMapper;
-import org.jeecg.modules.wms.outorder.mapper.WmsOutOrdersItemsMapper;
-import org.jeecg.modules.wms.outorder.mapper.WmsOutOrdersMapper;
-import org.jeecg.modules.wms.outorder.service.IWmsOutOrdersService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjectUtil;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
+import jakarta.annotation.Resource;
+import org.apache.commons.lang3.StringUtils;
+import org.jeecg.common.exception.JeecgBootBizTipException;
+import org.jeecg.common.exception.JeecgBootException;
+import org.jeecg.common.util.DateUtils;
+import org.jeecg.common.util.RedisUtil;
+import org.jeecg.common.util.oConvertUtils;
+import org.jeecg.modules.wms.config.WarehouseDictEnum;
+import org.jeecg.modules.wms.inventory.entity.WmsInventory;
+import org.jeecg.modules.wms.inventory.service.IWmsInventoryService;
+import org.jeecg.modules.wms.inventory.service.impl.WmsInventoryTransByAllocation;
+import org.jeecg.modules.wms.inventory.vo.WmsInventoryTransParam;
+import org.jeecg.modules.wms.outorder.entity.WmsOutOrders;
+import org.jeecg.modules.wms.outorder.entity.WmsOutOrdersAllocation;
+import org.jeecg.modules.wms.outorder.entity.WmsOutOrdersItems;
+import org.jeecg.modules.wms.outorder.mapper.WmsOutOrdersItemsMapper;
+import org.jeecg.modules.wms.outorder.mapper.WmsOutOrdersMapper;
+import org.jeecg.modules.wms.outorder.service.IWmsOutOrdersAllocationService;
+import org.jeecg.modules.wms.outorder.service.IWmsOutOrdersItemsService;
+import org.jeecg.modules.wms.outorder.service.IWmsOutOrdersService;
+import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
- * @Description: 出库单主表
+ * @Description: 出库单
+ * @Author: jeecg-boot
+ * @Date:   2025-05-19
  * @Version: V1.0
  */
-@Slf4j
 @Service
 public class WmsOutOrdersServiceImpl extends ServiceImpl<WmsOutOrdersMapper, WmsOutOrders> implements IWmsOutOrdersService {
 
-    /** 出库单号序号在 redis 中的 key 前缀, 后面拼 yyyyMMdd, 一天一个 key */
-    private static final String ORDER_NO_KEY_PREFIX = "wms:outOrders:orderNo:";
-    /** key 的有效期(秒): 比 24 小时多 60 秒, 防止跨零点瞬间 key 刚过期又被重新创建, 生成重复序号 */
-    private static final long ORDER_NO_KEY_EXPIRE_SECONDS = 24 * 60 * 60 + 60L;
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+	@Resource
+	private WmsOutOrdersMapper wmsOutOrdersMapper;
+	@Resource
+	private WmsOutOrdersItemsMapper wmsOutOrdersItemsMapper;
+	@Autowired
+	private IWmsOutOrdersItemsService wmsOutOrdersItemsService;
+	//注入库存service
+	@Autowired
+	private IWmsInventoryService iWmsInventoryService;
 
-    @Autowired
-    private WmsOutOrdersItemsMapper wmsOutOrdersItemsMapper;
-    @Autowired
-    private WmsOutOrdersAllocationMapper wmsOutOrdersAllocationMapper;
-    @Autowired
-    private IWmsCargoOwnersService wmsCargoOwnersService;
-    @Autowired
-    private IWmsInventoryService wmsInventoryService;
-    @Autowired
-    private RedisUtil redisUtil;
-    /** 省市区工具: 根据区县编码查出"省/市/区"的名称 */
-    @Autowired
-    private ProvinceCityArea provinceCityArea;
+	//分配库存时的库存变更(锁定库存)
+	@Autowired
+	private WmsInventoryTransByAllocation wmsInventoryTransByAllocation;
 
-    // ============================== 查询 ==============================
+	//注入自己
+	@Autowired
+	private IWmsOutOrdersService owner;
 
-    @Override
-    public IPage<WmsOutOrders> pageList(Page<WmsOutOrders> page, Wrapper<WmsOutOrders> queryWrapper) {
-        IPage<WmsOutOrders> pageList = page(page, queryWrapper);
-        List<WmsOutOrders> records = pageList.getRecords();
-        if (records == null || records.isEmpty()) {
-            return pageList;
-        }
-        // 出库单表里只存了货主id, 列表要显示货主名称: 收集当前页用到的货主id, 查一次数据库, 再回填
-        Set<String> ownerIds = new HashSet<>();
-        for (WmsOutOrders record : records) {
-            if (oConvertUtils.isNotEmpty(record.getOwnerId())) {
-                ownerIds.add(record.getOwnerId());
-            }
-        }
-        Map<String, String> ownerNameMap = new HashMap<>();
-        if (!ownerIds.isEmpty()) {
-            for (WmsCargoOwners owner : wmsCargoOwnersService.listByIds(ownerIds)) {
-                ownerNameMap.put(owner.getId(), owner.getOwnerName());
-            }
-        }
-        for (WmsOutOrders record : records) {
-            record.setOwnerName(ownerNameMap.get(record.getOwnerId()));
-        }
-        return pageList;
-    }
+	//注入wmsOutOrdersAllocationService
+	@Autowired
+	private IWmsOutOrdersAllocationService outOrdersAllocationService;
 
-    @Override
-    public List<WmsOutOrdersItems> selectItemsByMainId(String orderId) {
-        return wmsOutOrdersItemsMapper.selectByMainId(orderId);
-    }
+	@Autowired
+	private RedisUtil redisUtil;
 
-    @Override
-    public List<WmsOutOrdersAllocation> selectAllocationByMainId(String orderId) {
-        return wmsOutOrdersAllocationMapper.selectByMainId(orderId);
-    }
+	@Override
+	public IPage<WmsOutOrders> queryList(WmsOutOrders wmsOutOrders, Integer pageNo, Integer pageSize) {
+		Page<WmsOutOrders> page = PageHelper.startPage(pageNo, pageSize);
+		List<WmsOutOrders> list = wmsOutOrdersMapper.queryList(wmsOutOrders);
+		PageDTO<WmsOutOrders> wmsOutOrdersPageDTO = new PageDTO<>();
+		wmsOutOrdersPageDTO.setRecords(list);
+		wmsOutOrdersPageDTO.setTotal(page.getTotal());
+		wmsOutOrdersPageDTO.setSize(page.getPageSize());
+		wmsOutOrdersPageDTO.setCurrent(page.getPageNum());
+		wmsOutOrdersPageDTO.setPages(page.getPages());
+		return wmsOutOrdersPageDTO;
+	}
+	/**
+	 * 新增出库单
+	 */
+	public void add(WmsOutOrders wmsOutOrders){
+		//生成出库单号
+		String orderNumber = generateOrderNumber();
+		wmsOutOrders.setOrderNo(orderNumber);
+		//状态默认为创建状态 "CREATED"
+		wmsOutOrders.setStatus(WarehouseDictEnum.OUTBOUND_CREATED.getCode());
+		wmsOutOrdersMapper.insert(wmsOutOrders);
+	}
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void saveMain(WmsOutOrders wmsOutOrders, List<WmsOutOrdersItems> wmsOutOrdersItemsList) {
+		//生成出库单号
+		String orderNumber = generateOrderNumber();
+		wmsOutOrders.setOrderNo(orderNumber);
+		//状态默认为创建状态 "CREATED"
+		wmsOutOrders.setStatus(WarehouseDictEnum.OUTBOUND_CREATED.getCode());
+		wmsOutOrdersMapper.insert(wmsOutOrders);
+		//总商品数量
+		int totalQuantity = 0;
+		if(wmsOutOrdersItemsList!=null && wmsOutOrdersItemsList.size()>0) {
+			for(WmsOutOrdersItems entity:wmsOutOrdersItemsList) {
+				//商品数量
+				totalQuantity += entity.getExpectedQuantity();
+				//外键设置
+				entity.setOrderId(wmsOutOrders.getId());
+				//状态默认为创建状态 "CREATED"
+				entity.setStatus(WarehouseDictEnum.OUTBOUND_DETAIL_CREATED.getCode());
+				wmsOutOrdersItemsMapper.insert(entity);
+			}
+		}
+		//更新商品数量
+		wmsOutOrders.setTotalQuantity(totalQuantity);
+		//商品sku种类数
+		wmsOutOrders.setTotalSku(wmsOutOrdersItemsList.size());
+		wmsOutOrdersMapper.updateById(wmsOutOrders);
+	}
 
-    // ============================== 新增 ==============================
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void updateMain(WmsOutOrders wmsOutOrders,List<WmsOutOrdersItems> wmsOutOrdersItemsList) {
+		wmsOutOrdersMapper.updateById(wmsOutOrders);
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void add(WmsOutOrders wmsOutOrders) {
-        //1.必填项校验: 出库类型、订单来源、货主
-        if (wmsOutOrders == null || oConvertUtils.isEmpty(wmsOutOrders.getOrderType())
-                || oConvertUtils.isEmpty(wmsOutOrders.getOrderSource()) || oConvertUtils.isEmpty(wmsOutOrders.getOwnerId())) {
-            throw new JeecgBootException("出库类型、订单来源、货主不能为空");
-        }
-        //2.主键置空, 由 mybatis-plus 自动生成
-        wmsOutOrders.setId(null);
-        //3.生成出库单号: 8位年月日 + 4位序号
-        wmsOutOrders.setOrderNo(generateOrderNo());
-        //4.状态默认为已创建; 数量默认为0; 还没创建运单
-        wmsOutOrders.setStatus(WarehouseDictEnum.OUTBOUND_CREATED.getCode());
-        wmsOutOrders.setTotalQuantity(0);
-        wmsOutOrders.setTotalSku(0);
-        wmsOutOrders.setCreatedWaybill("0");
-        wmsOutOrders.setWaveId(null);
-        //5.根据省市区编码填上省、市、区的名称(后面生成运单时要用)
-        fillRegionNames(wmsOutOrders);
-        save(wmsOutOrders);
-    }
+		//1.先删除子表数据
+		wmsOutOrdersItemsMapper.deleteByMainId(wmsOutOrders.getId());
 
-    /**
-     * 生成出库单号: 8位年月日 + 4位序号, 例如 202610080001
-     * 序号使用 redis 的自增实现, key 按天区分, 第二天序号重新从 1 开始
-     */
-    private String generateOrderNo() {
-        String yyyyMMdd = LocalDate.now().format(DATE_FORMATTER);
-        String key = ORDER_NO_KEY_PREFIX + yyyyMMdd;
-        long incr;
-        try {
-            incr = redisUtil.incr(key, 1);
-            if (incr == 1) {
-                redisUtil.expire(key, ORDER_NO_KEY_EXPIRE_SECONDS);
-            }
-        } catch (Exception e) {
-            log.error("生成出库单号失败", e);
-            throw new JeecgBootException("生成出库单号失败");
-        }
-        return String.format("%s%04d", yyyyMMdd, incr);
-    }
+		//总商品数量
+		int totalQuantity = 0;
+		if(wmsOutOrdersItemsList!=null && wmsOutOrdersItemsList.size()>0) {
+			for(WmsOutOrdersItems entity:wmsOutOrdersItemsList) {
+				//商品数量
+				totalQuantity += entity.getExpectedQuantity();
+				//外键设置
+				entity.setOrderId(wmsOutOrders.getId());
+				//状态默认为创建状态 "CREATED"
+				entity.setStatus(WarehouseDictEnum.OUTBOUND_DETAIL_CREATED.getCode());
+				wmsOutOrdersItemsMapper.insert(entity);
+			}
+		}
+		//更新商品数量
+		wmsOutOrders.setTotalQuantity(totalQuantity);
+		//商品sku种类数
+		wmsOutOrders.setTotalSku(wmsOutOrdersItemsList.size());
+		wmsOutOrdersMapper.updateById(wmsOutOrders);
 
-    /**
-     * 根据省市区编码(region)填上省、市、区县的名称
-     * provinceCityArea.getText 返回的格式是 "省/市/区", 例如 "北京市/市辖区/东城区"
-     */
-    private void fillRegionNames(WmsOutOrders wmsOutOrders) {
-        if (oConvertUtils.isEmpty(wmsOutOrders.getRegion())) {
-            return;
-        }
-        try {
-            // 前端省市区组件可能传 "省编码,市编码,区编码" 这种格式, 取最后一段(区县编码)去查
-            String region = wmsOutOrders.getRegion().trim();
-            String code = region.contains(",") ? region.substring(region.lastIndexOf(",") + 1).trim() : region;
-            String text = provinceCityArea.getText(code);
-            if (oConvertUtils.isEmpty(text)) {
-                return;
-            }
-            String[] names = text.split("/");
-            if (names.length > 0) {
-                wmsOutOrders.setShippingProvince(names[0]);
-            }
-            if (names.length > 1) {
-                wmsOutOrders.setShippingCity(names[1]);
-            }
-            if (names.length > 2) {
-                wmsOutOrders.setShippingCounty(names[2]);
-            }
-        } catch (Exception e) {
-            // 省市区名称只是辅助信息, 解析失败不影响保存出库单
-            log.warn("解析省市区编码失败: {}", wmsOutOrders.getRegion(), e);
-        }
-    }
+	}
 
-    // ============================== 修改 ==============================
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void delMain(String id) {
+		//出库单状态为创建状态或审核失败状态可以删除
+		WmsOutOrders wmsOutOrders = wmsOutOrdersMapper.selectById(id);
+		if(!(WarehouseDictEnum.OUTBOUND_CREATED.getCode().equals(wmsOutOrders.getStatus())
+				|| WarehouseDictEnum.OUTBOUND_REJECTED.getCode().equals(wmsOutOrders.getStatus()))){
+			throw new JeecgBootException("非创建状态、审核失败状态出库单不允许删除");
+		}
+		wmsOutOrdersItemsMapper.deleteByMainId(id);
+		wmsOutOrdersMapper.deleteById(id);
+	}
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void updateMain(WmsOutOrders wmsOutOrders, List<WmsOutOrdersItems> itemsList) {
-        //==========1.条件判断==========
-        if (wmsOutOrders == null || oConvertUtils.isEmpty(wmsOutOrders.getId())) {
-            throw new JeecgBootException("出库单id不能为空");
-        }
-        String orderId = wmsOutOrders.getId();
-        WmsOutOrders originOrder = getById(orderId);
-        if (originOrder == null) {
-            throw new JeecgBootException("未找到对应数据");
-        }
-        // 只有已创建、审核失败状态的出库单可以修改(状态以数据库里的为准)
-        String status = originOrder.getStatus();
-        if (!WarehouseDictEnum.OUTBOUND_CREATED.getCode().equals(status)
-                && !WarehouseDictEnum.OUTBOUND_REJECTED.getCode().equals(status)) {
-            throw new JeecgBootException("只有已创建、审核失败状态的出库单才可以修改");
-        }
-        if (oConvertUtils.isEmpty(wmsOutOrders.getOrderType()) || oConvertUtils.isEmpty(wmsOutOrders.getOrderSource())) {
-            throw new JeecgBootException("出库类型、订单来源不能为空");
-        }
-        if (itemsList == null || itemsList.isEmpty()) {
-            throw new JeecgBootException("出库单明细至少添加一条");
-        }
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void delBatchMain(Collection<? extends Serializable> idList) {
+		for(Serializable id:idList) {
+			//出库单状态为创建状态或审核失败状态可以删除
+			WmsOutOrders wmsOutOrders = wmsOutOrdersMapper.selectById(id);
+			if(!(WarehouseDictEnum.OUTBOUND_CREATED.getCode().equals(wmsOutOrders.getStatus())
+					|| WarehouseDictEnum.OUTBOUND_REJECTED.getCode().equals(wmsOutOrders.getStatus()))){
+				throw new JeecgBootException("非创建状态、审核失败状态出库单不允许删除");
+			}
+			wmsOutOrdersItemsMapper.deleteByMainId(id.toString());
+			wmsOutOrdersMapper.deleteById(id);
+		}
+	}
 
-        //==========2.出库单明细: 同一个商品、同一个批次号合并成一条, 数量累加==========
-        Map<String, WmsOutOrdersItems> itemMap = new LinkedHashMap<>();
-        Set<String> skuIds = new HashSet<>();
-        int totalQuantity = 0;
-        for (WmsOutOrdersItems item : itemsList) {
-            if (oConvertUtils.isEmpty(item.getSkuId())) {
-                throw new JeecgBootException("出库单明细的商品不能为空");
-            }
-            int expectedQuantity = item.getExpectedQuantity() == null ? 0 : item.getExpectedQuantity();
-            if (expectedQuantity <= 0) {
-                throw new JeecgBootException("出库单明细的预期出库数量必须大于0");
-            }
-            String batchNumber = oConvertUtils.isEmpty(item.getBatchNumber()) ? null : item.getBatchNumber().trim();
-            String key = item.getSkuId() + "#" + (batchNumber == null ? "" : batchNumber);
-            WmsOutOrdersItems existItem = itemMap.get(key);
-            if (existItem == null) {
-                // 重新构造一个只包含允许保存字段的明细对象, 不直接用前端传过来的对象
-                WmsOutOrdersItems newItem = new WmsOutOrdersItems();
-                newItem.setOrderId(orderId);
-                newItem.setSkuId(item.getSkuId());
-                newItem.setExpectedQuantity(expectedQuantity);
-                newItem.setAllocatedQuantity(0);
-                newItem.setPickedQuantity(0);
-                newItem.setPackedQuantity(0);
-                newItem.setBatchNumber(batchNumber);
-                newItem.setExpiryDate(item.getExpiryDate());
-                newItem.setStatus(WarehouseDictEnum.OUTBOUND_DETAIL_CREATED.getCode());
-                itemMap.put(key, newItem);
-            } else {
-                existItem.setExpectedQuantity(existItem.getExpectedQuantity() + expectedQuantity);
-            }
-            skuIds.add(item.getSkuId());
-            totalQuantity += expectedQuantity;
-        }
-        // 先删后插
-        wmsOutOrdersItemsMapper.deleteByMainId(orderId);
-        for (WmsOutOrdersItems newItem : itemMap.values()) {
-            wmsOutOrdersItemsMapper.insert(newItem);
-        }
+	public String generateOrderNumber() {
+		//当前8位时间戳(年月日)"-"
+		String time = DateUtils.now().substring(0, 10).replace("-", "");
+		//key
+		String key = "asn_number"+time;
+		long incr = redisUtil.incr(key, 1);
+		if(incr == 1){
+			//设置过期时间，设置24小时+10秒的目的是避免并发产生订单号重复
+			redisUtil.expire(key, 24*60*60+10);
+		}
+		//将incr组成4位字符串
+		String incrStr = String.format("%04d", incr);
+		String orderNumber = "OBD"+time+incrStr;
 
-        //==========3.更新出库单: 只更新允许修改的字段==========
-        WmsOutOrders updateOrder = new WmsOutOrders();
-        updateOrder.setId(orderId);
-        updateOrder.setOrderType(wmsOutOrders.getOrderType());
-        updateOrder.setOrderSource(wmsOutOrders.getOrderSource());
-        updateOrder.setOrderSourceNo(wmsOutOrders.getOrderSourceNo());
-        updateOrder.setWarehouseId(wmsOutOrders.getWarehouseId());
-        updateOrder.setExpectedShipTime(wmsOutOrders.getExpectedShipTime());
-        updateOrder.setConsignee(wmsOutOrders.getConsignee());
-        updateOrder.setRegion(wmsOutOrders.getRegion());
-        updateOrder.setShippingAddress(wmsOutOrders.getShippingAddress());
-        updateOrder.setContact(wmsOutOrders.getContact());
-        updateOrder.setRemark(wmsOutOrders.getRemark());
-        // 总商品数量、总sku种类数
-        updateOrder.setTotalQuantity(totalQuantity);
-        updateOrder.setTotalSku(skuIds.size());
-        fillRegionNames(updateOrder);
-        updateById(updateOrder);
-    }
+		return orderNumber;
+	}
 
-    // ============================== 删除 ==============================
+	/**
+	 * 分配库存
+	 * @param orderId 出库单ID
+	 * @return 分配状态 ："ALLOCATED"-分配成功 分配失败 "ALLOCATED_FAILED"-分配失败
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public String allocateStock(String orderId) {
+		//审核通过或分配失败 才需要分配库存
+		//通过id查询出库单信息
+		WmsOutOrders outOrders = getById(orderId);
+		if(null == outOrders){
+			throw new JeecgBootBizTipException("出库单信息不存在!");
+		}
+		//状态判断
+		if(!WarehouseDictEnum.OUTBOUND_APPROVED.getCode().equals(outOrders.getStatus())
+				&& !WarehouseDictEnum.OUTBOUND_FAILED.getCode().equals(outOrders.getStatus())){
+			throw new JeecgBootBizTipException("审核通过或分配失败的出库单才需要分配库存");
+		}
+		//出库单没有指定仓库则不允许分配库存(需求 3.5.4 前置条件)
+		if(StringUtils.isBlank(outOrders.getWarehouseId())){
+			throw new JeecgBootBizTipException("出库单没有指定仓库, 不能分配库存");
+		}
+		//查询未分配的出库单明细 WHERE order_id=? and status in(created,fail)
+		List<WmsOutOrdersItems> outOrdersItemsList = wmsOutOrdersItemsService.lambdaQuery()
+				.eq(WmsOutOrdersItems::getOrderId, orderId)
+				.in(WmsOutOrdersItems::getStatus, List.of(WarehouseDictEnum.OUTBOUND_DETAIL_CREATED.getCode(),
+						WarehouseDictEnum.OUTBOUND_DETAIL_FAILED.getCode())).list();
+		//非空判断
+		if(CollUtil.isNotEmpty(outOrdersItemsList)){
+			//遍历未分配的出库单明细
+			for (WmsOutOrdersItems wmsOutOrdersItems : outOrdersItemsList) {
+				//查询可用库存列表
+				List<WmsInventory> inventoryList = iWmsInventoryService.selectAvailableBySku(outOrders.getWarehouseId(), wmsOutOrdersItems);
+				if(CollUtil.isNotEmpty(inventoryList)){
+					//分配库存
+					allocateStockToItems(wmsOutOrdersItems, inventoryList);
+					//更新出库单明细的分配状态
+					String result = wmsOutOrdersItemsService.updateAllocateStatus(wmsOutOrdersItems.getId());
+					if(WarehouseDictEnum.OUTBOUND_DETAIL_FAILED.getCode().equals(result)){
+						//明细分配失败则报错: 抛出异常后事务回滚, 这张出库单已经锁定的库存全部释放
+						throw new JeecgBootBizTipException("分配库存失败!");
+					}
+				}else{
+					throw new JeecgBootBizTipException("没有可用的库存!");
+				}
+			}
+			//更新出库单状态
+			return updateAllocateStatus(orderId);
+		}
+		//如果没有需要分配库存的明细，则代表这个出库单已经分配完成
+		return WarehouseDictEnum.OUTBOUND_ALLOCATED.getCode();
+	}
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void delMain(String id) {
-        if (oConvertUtils.isEmpty(id)) {
-            throw new JeecgBootException("出库单id不能为空");
-        }
-        WmsOutOrders order = getById(id);
-        if (order == null) {
-            throw new JeecgBootException("未找到对应数据");
-        }
-        String status = order.getStatus();
-        if (WarehouseDictEnum.OUTBOUND_CREATED.getCode().equals(status)) {
-            // 已创建状态: 直接删除明细和出库单
-            wmsOutOrdersItemsMapper.deleteByMainId(id);
-            removeById(id);
-        } else if (WarehouseDictEnum.OUTBOUND_REJECTED.getCode().equals(status)) {
-            // 审核失败状态: 不删除数据, 更新为已取消
-            changeStatus(order, WarehouseDictEnum.OUTBOUND_CANCELED.getCode());
-            WmsOutOrdersItems itemUpdate = new WmsOutOrdersItems();
-            itemUpdate.setStatus(WarehouseDictEnum.OUTBOUND_DETAIL_CANCELED.getCode());
-            wmsOutOrdersItemsMapper.update(itemUpdate, new LambdaUpdateWrapper<WmsOutOrdersItems>()
-                    .eq(WmsOutOrdersItems::getOrderId, id));
-        } else {
-            throw new JeecgBootException("出库单" + order.getOrderNo() + "不是已创建或审核失败状态, 不能删除");
-        }
-    }
+	/**
+	 * 为商品分配库存(课件 3.3)
+	 * 1.遍历可用库存 2.添加库存分配记录 3.存储库存表(锁定库存) 4.更新出库单明细的分配数量
+	 * @param wmsOutOrdersItems 需分配的出库明细
+	 * @param inventoryList 可用库存明细
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void allocateStockToItems(WmsOutOrdersItems wmsOutOrdersItems, List<WmsInventory> inventoryList) {
+		//取出预期数量, 例如 100
+		Integer expectedQuantity = wmsOutOrdersItems.getExpectedQuantity();
+		if (expectedQuantity == null || expectedQuantity <= 0) {
+			return;
+		}
+		//遍历可用库存列表
+		for (WmsInventory wmsInventory : inventoryList) {
+			//取出库存可用数量, 例如 30 或 110
+			Integer availableQuantity = wmsInventory.getAvailableQuantity();
+			if (availableQuantity == null || availableQuantity <= 0) {
+				continue;
+			}
+			//取小者即为此次分配数: 30 或 100
+			int minValue = Math.min(expectedQuantity, availableQuantity);
+			//分配后还差多少: 100-30=70 或 100-100=0
+			int left = expectedQuantity - minValue;
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void delBatchMain(String ids) {
-        for (String id : splitIds(ids)) {
-            delMain(id);
-        }
-    }
+			//批次号: 以实际被分配的这条库存的批次号为准
+			//(明细指定了批次号时两者相同; 明细没指定批次号时, 明细的批次号是空的, 必须用库存的, 否则后面锁定库存、拣货时找不到这条库存)
+			String batchNumber = wmsInventory.getBatchNumber();
 
-    // ============================== 审核 ==============================
+			//添加库存分配记录: 向库存分配表插入记录
+			WmsOutOrdersAllocation wmsOutOrdersAllocation = new WmsOutOrdersAllocation();
+			wmsOutOrdersAllocation.setOrderId(wmsOutOrdersItems.getOrderId());
+			wmsOutOrdersAllocation.setOrderItemId(wmsOutOrdersItems.getId());
+			wmsOutOrdersAllocation.setSkuId(wmsOutOrdersItems.getSkuId());
+			wmsOutOrdersAllocation.setLocationCode(wmsInventory.getLocationCode());
+			wmsOutOrdersAllocation.setBatchNumber(batchNumber);
+			wmsOutOrdersAllocation.setContainerCode(wmsInventory.getContainerCode());
+			wmsOutOrdersAllocation.setAllocatedQuantity(minValue);
+			wmsOutOrdersAllocation.setInventoryId(wmsInventory.getId());
+			outOrdersAllocationService.save(wmsOutOrdersAllocation);
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void submitAudit(String id) {
-        if (oConvertUtils.isEmpty(id)) {
-            throw new JeecgBootException("请选择要提交审核的出库单");
-        }
-        WmsOutOrders order = getById(id);
-        if (order == null) {
-            throw new JeecgBootException("未找到对应数据");
-        }
-        String status = order.getStatus();
-        if (!WarehouseDictEnum.OUTBOUND_CREATED.getCode().equals(status)
-                && !WarehouseDictEnum.OUTBOUND_REJECTED.getCode().equals(status)) {
-            throw new JeecgBootException("只有已创建、审核失败状态的出库单才可以提交审核");
-        }
-        List<WmsOutOrdersItems> itemsList = wmsOutOrdersItemsMapper.selectByMainId(id);
-        if (itemsList == null || itemsList.isEmpty()) {
-            throw new JeecgBootException("出库单" + order.getOrderNo() + "还没有出库明细, 请先点击编辑添加商品, 再提交审核");
-        }
-        changeStatus(order, WarehouseDictEnum.OUTBOUND_SUBMIT_AUDIT.getCode());
-    }
+			//存储库存(锁定库存): 可用数量减少, 分配数量增加
+			WmsInventoryTransParam wmsInventoryTransParam = new WmsInventoryTransParam();
+			wmsInventoryTransParam.setProductId(wmsOutOrdersItems.getSkuId());
+			wmsInventoryTransParam.setExecQuantity(minValue);
+			wmsInventoryTransParam.setSourceLocationCode(wmsInventory.getLocationCode());
+			wmsInventoryTransParam.setWarehouseId(wmsInventory.getWarehouseId());
+			wmsInventoryTransParam.setBatchNumber(batchNumber);
+			wmsInventoryTransParam.setTransactionType(WarehouseDictEnum.INVENTORY_ALLOCATION.getCode());
+			wmsInventoryTransParam.setOperationTime(new Date());
+			wmsInventoryTransByAllocation.transfer(wmsInventoryTransParam);
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void audit(String id, String status) {
-        if (oConvertUtils.isEmpty(id)) {
-            throw new JeecgBootException("请选择要审核的出库单");
-        }
-        if (!WarehouseDictEnum.OUTBOUND_APPROVED.getCode().equals(status)
-                && !WarehouseDictEnum.OUTBOUND_REJECTED.getCode().equals(status)) {
-            throw new JeecgBootException("请选择审核结果: 审核通过 或 不通过");
-        }
-        WmsOutOrders order = getById(id);
-        if (order == null) {
-            throw new JeecgBootException("未找到对应数据");
-        }
-        if (!WarehouseDictEnum.OUTBOUND_SUBMIT_AUDIT.getCode().equals(order.getStatus())) {
-            throw new JeecgBootException("只有提交审核状态的出库单才可以审核");
-        }
-        if (WarehouseDictEnum.OUTBOUND_APPROVED.getCode().equals(status)) {
-            List<WmsOutOrdersItems> itemsList = wmsOutOrdersItemsMapper.selectByMainId(id);
-            if (itemsList == null || itemsList.isEmpty()) {
-                throw new JeecgBootException("出库单" + order.getOrderNo() + "没有出库明细, 不能审核通过");
-            }
-        }
-        changeStatus(order, status);
-    }
+			//更新出库单明细已分配数量
+			wmsOutOrdersItemsService.allocateStock(wmsOutOrdersItems.getId(), minValue);
+			if(left == 0){
+				//分配完了,结束循环
+				break;
+			}
+			//下个循环还需要的数量
+			expectedQuantity = left;
+		}
+	}
 
-    /**
-     * 修改出库单状态: where 条件带上"修改前的状态", 这期间状态被别人改了就更新不到, 直接报错
-     */
-    private void changeStatus(WmsOutOrders order, String newStatus) {
-        WmsOutOrders updateOrder = new WmsOutOrders();
-        updateOrder.setStatus(newStatus);
-        boolean updated = update(updateOrder, new LambdaUpdateWrapper<WmsOutOrders>()
-                .eq(WmsOutOrders::getId, order.getId())
-                .eq(WmsOutOrders::getStatus, order.getStatus()));
-        if (!updated) {
-            throw new JeecgBootException("出库单" + order.getOrderNo() + "状态已变更, 请刷新后重试");
-        }
-    }
 
-    // ============================== 分配库存 ==============================
+	/**
+	 * 更新出库单分配状态
+	 */
+	@Override
+	public String updateAllocateStatus(String orderId) {
+		//查询出库单明细
+		List<WmsOutOrdersItems> skuItems = wmsOutOrdersItemsService.selectByMainId(orderId);
+		//skuItem中的状态有一个是分配失败则出库单的状态为分配失败，否则分配成功，用stream流实现
+		WarehouseDictEnum allocateStatus = skuItems.stream()
+				.filter(item -> WarehouseDictEnum.OUTBOUND_DETAIL_FAILED.getCode().equals(item.getStatus()))
+				.findAny()
+				.map(item -> WarehouseDictEnum.OUTBOUND_FAILED)
+				.orElse(WarehouseDictEnum.OUTBOUND_ALLOCATED);
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public String allocateStock(String ids) {
-        List<String> idList = splitIds(ids);
-        if (idList.isEmpty()) {
-            throw new JeecgBootException("请选择要分配库存的出库单");
-        }
-        //1. 先把所有出库单校验一遍, 有一个不符合就直接报错, 什么都不改
-        List<WmsOutOrders> orderList = new ArrayList<>();
-        for (String id : idList) {
-            WmsOutOrders order = getById(id);
-            if (order == null) {
-                throw new JeecgBootException("出库单不存在: " + id);
-            }
-            // 出库单状态为审核通过或分配失败才允许分配库存
-            if (!WarehouseDictEnum.OUTBOUND_APPROVED.getCode().equals(order.getStatus())
-                    && !WarehouseDictEnum.OUTBOUND_FAILED.getCode().equals(order.getStatus())) {
-                throw new JeecgBootException("出库单" + order.getOrderNo() + "不是审核通过或分配失败状态, 不能分配库存");
-            }
-            // 出库单没有指定仓库则不允许分配库存
-            if (oConvertUtils.isEmpty(order.getWarehouseId())) {
-                throw new JeecgBootException("出库单" + order.getOrderNo() + "没有指定仓库, 不能分配库存");
-            }
-            orderList.add(order);
-        }
-        //2. 逐个出库单分配
-        int successCount = 0;
-        List<String> failedOrderNos = new ArrayList<>();
-        for (WmsOutOrders order : orderList) {
-            if (allocateOrder(order)) {
-                successCount++;
-            } else {
-                failedOrderNos.add(order.getOrderNo());
-            }
-        }
-        if (failedOrderNos.isEmpty()) {
-            return "库存分配成功, 共" + successCount + "张出库单";
-        }
-        return "库存分配完成: 成功" + successCount + "张, 库存不足分配失败" + failedOrderNos.size() + "张(" + String.join("、", failedOrderNos) + ")";
-    }
+		wmsOutOrdersMapper.update(null,
+				new LambdaUpdateWrapper<WmsOutOrders>().eq(WmsOutOrders::getId,orderId)
+						.and(wq->wq.eq(WmsOutOrders::getStatus, WarehouseDictEnum.OUTBOUND_APPROVED.getCode())
+								.or()
+								.eq(WmsOutOrders::getStatus, WarehouseDictEnum.OUTBOUND_FAILED.getCode()))
+						.set(WmsOutOrders::getStatus,allocateStatus.getCode()));
+		//返回分配状态
+		return allocateStatus.getCode();
+	}
 
-    /**
-     * 给一张出库单分配库存
-     *
-     * @return true: 所有明细都分配成功
-     */
-    private boolean allocateOrder(WmsOutOrders order) {
-        List<WmsOutOrdersItems> itemsList = wmsOutOrdersItemsMapper.selectByMainId(order.getId());
-        if (itemsList == null || itemsList.isEmpty()) {
-            throw new JeecgBootException("出库单" + order.getOrderNo() + "没有出库明细, 不能分配库存");
-        }
-        boolean allAllocated = true;
-        for (WmsOutOrdersItems item : itemsList) {
-            // 出库单明细状态为已创建或分配失败才需要分配; 已经分配好的明细跳过
-            boolean needAllocate = WarehouseDictEnum.OUTBOUND_DETAIL_CREATED.getCode().equals(item.getStatus())
-                    || WarehouseDictEnum.OUTBOUND_DETAIL_FAILED.getCode().equals(item.getStatus());
-            if (!needAllocate) {
-                continue;
-            }
-            if (!allocateItem(order, item)) {
-                allAllocated = false;
-            }
-        }
-        // 更新出库单状态: 明细全部分配成功为已分配, 否则为分配失败
-        changeStatus(order, allAllocated
-                ? WarehouseDictEnum.OUTBOUND_ALLOCATED.getCode()
-                : WarehouseDictEnum.OUTBOUND_FAILED.getCode());
-        return allAllocated;
-    }
+	/**
+	 * 更新出库单的拣货状态
+	 */
+	public void updatePickStatus(List<String> orderIds){
+		//根据出库单id查询状态非拣货完成的记录
+		List<WmsOutOrdersItems> wmsOutOrdersItemsNotPicked = wmsOutOrdersItemsService.selectNotPickedOrderItemsByOrderId(orderIds);
+		//提取出未分拣的出库单ID
+		List<String> orderIdsNotPicked = wmsOutOrdersItemsNotPicked.stream().map(item -> item.getOrderId()).distinct().collect(Collectors.toList());
+		//取出orderIds中不包含orderIdsNotPicked的记录，即取出分拣完成的出库单
+		List<String> orderIdsPicked = orderIds.stream()
+				.filter(orderId -> !orderIdsNotPicked.contains(orderId))
+				.collect(Collectors.toList());
+		if(orderIdsPicked.size()<=0){
+			return;
+		}
+		//更新 出库单 的拣货状态为拣货完成，由拣货中更新中拣货完成
+		LambdaUpdateWrapper<WmsOutOrders> set = new LambdaUpdateWrapper<WmsOutOrders>()
+				.in(WmsOutOrders::getId, orderIdsPicked)
+				.eq(WmsOutOrders::getStatus, WarehouseDictEnum.OUTBOUND_PICKING.getCode())
+				.set(WmsOutOrders::getStatus, WarehouseDictEnum.OUTBOUND_PICKED.getCode());
+		int update = wmsOutOrdersMapper.update(null, set);
+		if(update<=0){
+			throw new JeecgBootException("为出库单拣货数量及状态失败!");
+		}
+	}
 
-    /**
-     * 给一条出库单明细分配库存: 要么全部分配成功, 要么一点都不分配(库存不够时不锁定任何库存)
-     *
-     * @return true: 分配成功
-     */
-    private boolean allocateItem(WmsOutOrders order, WmsOutOrdersItems item) {
-        int needQuantity = item.getExpectedQuantity() == null ? 0 : item.getExpectedQuantity();
-        WmsOutOrdersItems itemUpdate = new WmsOutOrdersItems();
-        itemUpdate.setId(item.getId());
+	/**
+	 * 提交审核
+	 * @param id
+	 */
+	public void submitAudit(String id){
+		//如果没有选择出库单则返回错误
+		if( oConvertUtils.isEmpty(id)){
+			//抛出异常
+			throw new JeecgBootException("请选择要审核的出库单");
+		}
+		WmsOutOrders wmsOutOrdersEntity = getById(id);
+		if(wmsOutOrdersEntity==null) {
+			//异常
+			throw new JeecgBootException("出库单不存在");
+		}
+		//当前状态只能是创建状态、审核失败状态才允许提交审核
+		if(!(WarehouseDictEnum.OUTBOUND_CREATED.getCode().equals(wmsOutOrdersEntity.getStatus())
+				|| WarehouseDictEnum.OUTBOUND_REJECTED.getCode().equals(wmsOutOrdersEntity.getStatus()))){
+			throw new JeecgBootException("非初始状态、审核失败状态出库单不允许审核");
+		}
+		//更新状态为提交审核
+		wmsOutOrdersEntity.setStatus(WarehouseDictEnum.OUTBOUND_SUBMIT_AUDIT.getCode());
+		updateById(wmsOutOrdersEntity);
+	}
 
-        //1. 找到可以分配的库存: 可售、可用数量大于0; 明细指定了批号就只找该批号
-        //   返回的顺序就是分配顺序: 先到期先出, 到期日相同的先进先出
-        List<WmsInventory> inventoryList = wmsInventoryService.listAllocatable(item.getSkuId(), order.getWarehouseId(), item.getBatchNumber());
-        int totalAvailable = 0;
-        for (WmsInventory inventory : inventoryList) {
-            totalAvailable += inventory.getAvailableQuantity() == null ? 0 : inventory.getAvailableQuantity();
-        }
-        //2. 可用库存总数不够: 明细标记为分配失败, 不锁定库存
-        if (needQuantity <= 0 || totalAvailable < needQuantity) {
-            itemUpdate.setStatus(WarehouseDictEnum.OUTBOUND_DETAIL_FAILED.getCode());
-            itemUpdate.setAllocatedQuantity(0);
-            wmsOutOrdersItemsMapper.updateById(itemUpdate);
-            return false;
-        }
-        //3. 按顺序从每条库存里取, 直到取够
-        int remaining = needQuantity;
-        for (WmsInventory inventory : inventoryList) {
-            if (remaining <= 0) {
-                break;
-            }
-            int available = inventory.getAvailableQuantity() == null ? 0 : inventory.getAvailableQuantity();
-            int take = Math.min(remaining, available);
-            if (take <= 0) {
-                continue;
-            }
-            //3.1 锁定库存: 可用数量 - take, 分配数量 + take
-            //    锁定失败说明这期间库存被别人占用了, 抛异常让整个操作回滚, 用户重试即可
-            if (!wmsInventoryService.lockStock(inventory.getId(), take)) {
-                throw new JeecgBootException("商品" + item.getProductName() + "的库存发生了变化, 请重新分配");
-            }
-            //3.2 向库存分配表插入一条记录: 记下从哪个储位、哪条库存分配了多少
-            WmsOutOrdersAllocation allocation = new WmsOutOrdersAllocation();
-            allocation.setOrderId(order.getId());
-            allocation.setOrderItemId(item.getId());
-            allocation.setSkuId(item.getSkuId());
-            allocation.setLocationCode(inventory.getLocationCode());
-            allocation.setBatchNumber(inventory.getBatchNumber());
-            allocation.setContainerCode(inventory.getContainerCode());
-            allocation.setAllocatedQuantity(take);
-            allocation.setPickedQuantity(0);
-            allocation.setInventoryId(inventory.getId());
-            allocation.setStatus(WarehouseDictEnum.OUTBOUND_DETAIL_ALLOCATED.getCode());
-            wmsOutOrdersAllocationMapper.insert(allocation);
-            remaining -= take;
-        }
-        //4. 更新出库单明细: 分配数量、状态为已分配
-        itemUpdate.setAllocatedQuantity(needQuantity);
-        itemUpdate.setStatus(WarehouseDictEnum.OUTBOUND_DETAIL_ALLOCATED.getCode());
-        wmsOutOrdersItemsMapper.updateById(itemUpdate);
-        return true;
-    }
+	@Override
+	public void audit(WmsOutOrders wmsOutOrders) {
+		//如果没有选择出库单则返回错误
+		if(oConvertUtils.isEmpty(wmsOutOrders.getId())){
+			//抛出异常
+			throw new JeecgBootException("请选择要审核的出库单");
+		}
+		WmsOutOrders wmsOutOrdersEntity = getById(wmsOutOrders.getId());
+		if(wmsOutOrdersEntity==null) {
+			//异常
+			throw new JeecgBootException("出库单不存在");
+		}
+		//当前状态只能是提交审核状态
+		if(!WarehouseDictEnum.OUTBOUND_SUBMIT_AUDIT.getCode().equals(wmsOutOrdersEntity.getStatus())){
+			//异常
+			throw new JeecgBootException("当前状态是提交审核状态方可进行审核");
+		}
+		// todo 校验出库单的完整性
 
-    /**
-     * 把逗号分割的 id 字符串拆开: 去空格、去空串、去重
-     */
-    private List<String> splitIds(String ids) {
-        Set<String> idSet = new LinkedHashSet<>();
-        if (oConvertUtils.isNotEmpty(ids)) {
-            for (String raw : ids.split(",")) {
-                String id = raw.trim();
-                if (oConvertUtils.isNotEmpty(id)) {
-                    idSet.add(id);
-                }
-            }
-        }
-        return new ArrayList<>(idSet);
-    }
+		//更新状态为审核通过或审核不通过
+		wmsOutOrdersEntity.setStatus(wmsOutOrders.getStatus());
+		updateById(wmsOutOrdersEntity);
+	}
+
+
+	@Override
+	public List<WmsOutOrders> selectByMainId(String mainId) {
+		return wmsOutOrdersMapper.selectByMainId(mainId);
+	}
+
+	@Override
+	public List<WmsOutOrders> selectByWaveId(String waveId) {
+		//根据波次id查询其下的出库单id
+		List<WmsOutOrders> wmsOutOrders = wmsOutOrdersMapper.selectList(new LambdaQueryWrapper<WmsOutOrders>().eq(WmsOutOrders::getWaveId, waveId));
+		return wmsOutOrders;
+	}
+
+	/**
+	 * 获取未分配波次的出库单,状态为已分配 ALLOCATED
+	 */
+	public List<WmsOutOrders> selectUnassignedOrders(String warehouseId){
+		return wmsOutOrdersMapper.selectUnassignedOrders(warehouseId);
+	}
+	/**
+	 * 根据出库单id更新订单的波次ID
+	 */
+	public void batchUpdateWaveId( List<String> orderIds, String waveId,String shipmentStrategy){
+		wmsOutOrdersMapper.batchUpdateWaveId(orderIds, waveId,shipmentStrategy);
+	}
+
 }

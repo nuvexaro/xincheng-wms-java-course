@@ -3,13 +3,11 @@ package org.jeecg.modules.wms.goods.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.jeecg.common.util.RedisUtil;
-import org.jeecg.modules.wms.goods.entity.WmsProductImages;
-import org.jeecg.modules.wms.goods.entity.WmsProducts;
+import org.jeecg.modules.wms.goods.entity.*;
+import org.jeecg.modules.wms.goods.excel.WmsProductsImport;
 import org.jeecg.modules.wms.goods.mapper.WmsProductsMapper;
-import org.jeecg.modules.wms.goods.service.IWmsCargoOwnersService;
-import org.jeecg.modules.wms.goods.service.IWmsProductCategoriesService;
-import org.jeecg.modules.wms.goods.service.IWmsProductImagesService;
-import org.jeecg.modules.wms.goods.service.IWmsProductsService;
+import org.jeecg.modules.wms.goods.service.*;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,19 +15,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import org.jeecg.modules.wms.config.ExcelImportResult;
-import org.jeecg.modules.wms.goods.excel.WmsProductsImport;
-import org.jeecg.modules.wms.goods.entity.WmsCargoOwners;
-import org.jeecg.modules.wms.goods.entity.WmsProductBrand;
-import org.jeecg.modules.wms.goods.entity.WmsProductCategories;
-import org.jeecg.modules.wms.goods.service.IWmsProductBrandService;
-import org.jeecg.common.util.oConvertUtils;
-import org.springframework.beans.BeanUtils;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * @Description: 商品信息表
@@ -53,7 +38,6 @@ public class WmsProductsServiceImpl extends ServiceImpl<WmsProductsMapper, WmsPr
     private IWmsProductImagesService wmsProductImagesService;
     @Autowired
     private IWmsProductBrandService wmsProductBrandService;
-
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void add(WmsProducts wmsProducts) {
@@ -151,113 +135,48 @@ public class WmsProductsServiceImpl extends ServiceImpl<WmsProductsMapper, WmsPr
         code = ownerCode + categoryCode + code;
         return code;
     }
-
     /**
      * 导入商品
+     * @param wmsProductsImportList
      */
-    @Transactional(rollbackFor = Exception.class)
     @Override
-    public void importProduct(List<WmsProductsImport> cachedDataList, ExcelImportResult result) {
-        if (cachedDataList == null || cachedDataList.isEmpty()) {
-            return;
-        }
-        // 问题: Excel 里是货主名称、品牌名称、分类名称, 数据库表里要的是它们的 id
-        // 解决: 先把这一批用到的名称收集起来, 各查一次数据库, 转成 map<名称, id>
-        //1. 收集名称
-        Set<String> ownerNames = new HashSet<>();
-        Set<String> brandNames = new HashSet<>();
-        Set<String> categoryNames = new HashSet<>();
-        for (WmsProductsImport imp : cachedDataList) {
-            if (oConvertUtils.isNotEmpty(imp.getOwnerName())) {
-                ownerNames.add(imp.getOwnerName().trim());
-            }
-            if (oConvertUtils.isNotEmpty(imp.getProductBrandName())) {
-                brandNames.add(imp.getProductBrandName().trim());
-            }
-            if (oConvertUtils.isNotEmpty(imp.getCategoryName())) {
-                categoryNames.add(imp.getCategoryName().trim());
-            }
-        }
-        //2. 查询并转成 map: key=名称, value=id (名称重复时取第一条)
-        Map<String, String> ownerMap = new HashMap<>();
-        if (!ownerNames.isEmpty()) {
-            List<WmsCargoOwners> owners = wmsCargoOwnersService.list(new LambdaQueryWrapper<WmsCargoOwners>()
-                    .in(WmsCargoOwners::getOwnerName, new ArrayList<>(ownerNames)));
-            for (WmsCargoOwners owner : owners) {
-                ownerMap.putIfAbsent(owner.getOwnerName(), owner.getId());
-            }
-        }
-        Map<String, String> brandMap = new HashMap<>();
-        if (!brandNames.isEmpty()) {
-            List<WmsProductBrand> brands = wmsProductBrandService.list(new LambdaQueryWrapper<WmsProductBrand>()
-                    .in(WmsProductBrand::getName, new ArrayList<>(brandNames)));
-            for (WmsProductBrand brand : brands) {
-                brandMap.putIfAbsent(brand.getName(), brand.getId());
-            }
-        }
-        Map<String, String> categoryMap = new HashMap<>();
-        if (!categoryNames.isEmpty()) {
-            List<WmsProductCategories> categories = wmsProductCategoriesService.list(new LambdaQueryWrapper<WmsProductCategories>()
-                    .in(WmsProductCategories::getCategoryName, new ArrayList<>(categoryNames)));
-            for (WmsProductCategories category : categories) {
-                categoryMap.putIfAbsent(category.getCategoryName(), category.getId());
-            }
-        }
-
-        //3. 逐条处理: 有问题的行记下原因后跳过, 不影响其它行
-        for (WmsProductsImport imp : cachedDataList) {
-            //3.1 必填校验
-            if (oConvertUtils.isEmpty(imp.getProductName()) || oConvertUtils.isEmpty(imp.getOwnerName())
-                    || oConvertUtils.isEmpty(imp.getCategoryName())) {
-                result.fail(imp.getRowNo(), "商品名称、货主名称、商品分类不能为空");
-                continue;
-            }
-            //3.2 名称转 id
-            String ownerId = ownerMap.get(imp.getOwnerName().trim());
-            if (ownerId == null) {
-                result.fail(imp.getRowNo(), "货主名称" + imp.getOwnerName() + "不存在");
-                continue;
-            }
-            String categoryId = categoryMap.get(imp.getCategoryName().trim());
-            if (categoryId == null) {
-                result.fail(imp.getRowNo(), "商品分类" + imp.getCategoryName() + "不存在");
-                continue;
-            }
-            String brandId = null;
-            if (oConvertUtils.isNotEmpty(imp.getProductBrandName())) {
-                brandId = brandMap.get(imp.getProductBrandName().trim());
-                if (brandId == null) {
-                    result.fail(imp.getRowNo(), "商品品牌" + imp.getProductBrandName() + "不存在");
-                    continue;
-                }
-            }
-            //3.3 转成商品实体(同名属性直接拷贝), 再设置 3 个 id
-            WmsProducts wmsProducts = new WmsProducts();
-            BeanUtils.copyProperties(imp, wmsProducts);
-            wmsProducts.setOwnerId(ownerId);
-            wmsProducts.setCategoryId(categoryId);
-            wmsProducts.setProductBrand(brandId);
-
-            //3.4 判断商品是否已存在: 同一货主下商品编码唯一; 没填商品编码时按 货主 + 商品名称 判断
-            LambdaQueryWrapper<WmsProducts> existQuery = new LambdaQueryWrapper<WmsProducts>()
-                    .eq(WmsProducts::getOwnerId, ownerId);
-            if (oConvertUtils.isNotEmpty(imp.getProductCode())) {
-                existQuery.eq(WmsProducts::getProductCode, imp.getProductCode());
-            } else {
-                existQuery.eq(WmsProducts::getProductName, imp.getProductName());
-            }
-            List<WmsProducts> existList = list(existQuery);
-            if (existList != null && !existList.isEmpty()) {
-                //已存在: 更新。商品条码是系统生成的, 更新时不改它(置为 null 的属性不会参与更新)
-                wmsProducts.setId(existList.get(0).getId());
-                wmsProducts.setProductBarcode(null);
-                updateById(wmsProducts);
-            } else {
-                //不存在: 新增(add 方法里会生成商品条码)
-                wmsProducts.setId(null);
-                add(wmsProducts);
-            }
-            result.success();
+    public void importProduct(List<WmsProductsImport> wmsProductsImportList) {
+        for (WmsProductsImport wmsProductsImport : wmsProductsImportList){
+            WmsProducts products = convertWmsProducts(wmsProductsImport);
+            add(products);
         }
     }
+    /**
+     * 将WmsProductsImport转换为WmsProducts
+     * @param wmsProductsImport
+     * @return WmsProducts
+     */
+    private WmsProducts convertWmsProducts(WmsProductsImport wmsProductsImport) {
+        WmsProducts wmsProducts = new WmsProducts();
+        BeanUtils.copyProperties(wmsProductsImport,wmsProducts);
+        //处理名称
+        //货主名称
+        String ownerName = wmsProductsImport.getOwnerName();
+        //根据货主名称查询货主
+        LambdaQueryWrapper<WmsCargoOwners> eq = new LambdaQueryWrapper<WmsCargoOwners>()
+                .eq(WmsCargoOwners::getOwnerName, ownerName);
+        WmsCargoOwners wmsCargoOwners = wmsCargoOwnersService.getOne(eq);
+        wmsProducts.setOwnerId(wmsCargoOwners.getId());
+
+        //根据商品分类名称查询分类
+        String categoryName = wmsProductsImport.getCategoryName();
+        LambdaQueryWrapper<WmsProductCategories> queryWrapper = new LambdaQueryWrapper<WmsProductCategories>()
+                .eq(WmsProductCategories::getCategoryName, categoryName);
+        WmsProductCategories wmsProductCategories = wmsProductCategoriesService.getOne(queryWrapper);
+        wmsProducts.setCategoryId(wmsProductCategories.getId());
+        //根据品牌名称查询 品牌
+        String brandName = wmsProductsImport.getProductBrandName();
+        LambdaQueryWrapper<WmsProductBrand> queryWrapper2 = new LambdaQueryWrapper<WmsProductBrand>()
+                .eq(WmsProductBrand::getName, brandName);
+        WmsProductBrand wmsProductBrand = wmsProductBrandService.getOne(queryWrapper2);
+        wmsProducts.setProductBrand(wmsProductBrand.getId());
+
+        return wmsProducts;
+    }
+
 }

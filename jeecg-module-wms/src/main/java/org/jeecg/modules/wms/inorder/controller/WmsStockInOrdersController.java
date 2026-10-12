@@ -1,50 +1,55 @@
 package org.jeecg.modules.wms.inorder.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.shiro.SecurityUtils;
-import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.jeecg.common.api.vo.Result;
-import org.jeecg.common.aspect.annotation.AutoLog;
-import org.jeecg.common.exception.JeecgBootException;
-import org.jeecg.common.system.query.QueryGenerator;
-import org.jeecg.common.system.vo.LoginUser;
-import org.jeecg.common.util.oConvertUtils;
-import org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems;
-import org.jeecg.modules.wms.inorder.entity.WmsStockInOrders;
-import org.jeecg.modules.wms.inorder.service.IWmsStockInOrderItemsService;
-import org.jeecg.modules.wms.inorder.service.IWmsStockInOrdersService;
-import org.jeecg.modules.wms.inorder.vo.WmsStockInOrdersPage;
-import org.jeecgframework.poi.excel.ExcelImportUtil;
-import org.jeecgframework.poi.excel.def.NormalExcelConstants;
-import org.jeecgframework.poi.excel.entity.ExportParams;
-import org.jeecgframework.poi.excel.entity.ImportParams;
-import org.jeecgframework.poi.excel.entity.enmus.ExcelType;
-import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MultipartHttpServletRequest;
-import org.springframework.web.servlet.ModelAndView;
-
+import java.io.UnsupportedEncodingException;
 import java.io.IOException;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.HashMap;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.jeecgframework.poi.excel.ExcelImportUtil;
+import org.jeecgframework.poi.excel.def.NormalExcelConstants;
+import org.jeecgframework.poi.excel.entity.ExportParams;
+import org.jeecgframework.poi.excel.entity.ImportParams;
+import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
+import org.jeecg.common.system.vo.LoginUser;
+import org.apache.shiro.SecurityUtils;
+import org.jeecg.common.api.vo.Result;
+import org.jeecg.common.system.query.QueryGenerator;
+import org.jeecg.common.system.query.QueryRuleEnum;
+import org.jeecg.common.util.oConvertUtils;
+import org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems;
+import org.jeecg.modules.wms.inorder.entity.WmsStockInOrders;
+import org.jeecg.modules.wms.inorder.vo.WmsStockInOrdersPage;
+import org.jeecg.modules.wms.inorder.service.IWmsStockInOrdersService;
+import org.jeecg.modules.wms.inorder.service.IWmsStockInOrderItemsService;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lombok.extern.slf4j.Slf4j;
+import com.alibaba.fastjson.JSON;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import org.jeecg.common.aspect.annotation.AutoLog;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 
 
-/**
+ /**
  * @Description: 入库单主表
  * @Author: jeecg-boot
- * @Date:   2026-10-06
+ * @Date:   2025-08-30
  * @Version: V1.0
  */
 @Tag(name="入库单主表")
@@ -75,8 +80,7 @@ public class WmsStockInOrdersController {
 								   HttpServletRequest req) {
         QueryWrapper<WmsStockInOrders> queryWrapper = QueryGenerator.initQueryWrapper(wmsStockInOrders, req.getParameterMap());
 		Page<WmsStockInOrders> page = new Page<WmsStockInOrders>(pageNo, pageSize);
-		// pageList 会补全列表里的货主名称、仓库名称
-		IPage<WmsStockInOrders> pageList = wmsStockInOrdersService.pageList(page, queryWrapper);
+		IPage<WmsStockInOrders> pageList = wmsStockInOrdersService.page(page, queryWrapper);
 		return Result.OK(pageList);
 	}
 
@@ -93,8 +97,8 @@ public class WmsStockInOrdersController {
 	public Result<String> add(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
 		WmsStockInOrders wmsStockInOrders = new WmsStockInOrders();
 		BeanUtils.copyProperties(wmsStockInOrdersPage, wmsStockInOrders);
-		// 新增入库单只添加入库单主表: 自动生成入库单号, 状态默认为初始; 入库明细在"编辑"里添加
 		wmsStockInOrdersService.add(wmsStockInOrders);
+//		wmsStockInOrdersService.saveMain(wmsStockInOrders, wmsStockInOrdersPage.getWmsStockInOrderItemsList());
 		return Result.OK("添加成功！");
 	}
 
@@ -111,11 +115,38 @@ public class WmsStockInOrdersController {
 	public Result<String> edit(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
 		WmsStockInOrders wmsStockInOrders = new WmsStockInOrders();
 		BeanUtils.copyProperties(wmsStockInOrdersPage, wmsStockInOrders);
-		// 入库单是否存在、状态是否允许修改等校验都在 updateMain 里
+		WmsStockInOrders wmsStockInOrdersEntity = wmsStockInOrdersService.getById(wmsStockInOrders.getId());
+		if(wmsStockInOrdersEntity==null) {
+			return Result.error("未找到对应数据");
+		}
 		wmsStockInOrdersService.updateMain(wmsStockInOrders, wmsStockInOrdersPage.getWmsStockInOrderItemsList());
 		return Result.OK("编辑成功!");
 	}
-
+	 /**
+	  * 提交审核
+	  */
+	 @AutoLog(value = "入库单主表-提交审核")
+	 @Operation(summary="入库单主表-提交审核")
+//	 @RequiresPermissions("inorder:wms_stock_in_orders:submitaudit")
+	 @PostMapping(value = "/submitAudit")
+	 public Result<String> submit(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
+		 wmsStockInOrdersService.submitAudit(wmsStockInOrdersPage);
+		 return Result.OK("提交成功！");
+	 }
+	 /**
+	  *  审核
+	  *
+	  * @param wmsStockInOrdersPage
+	  * @return
+	  */
+	 @AutoLog(value = "入库单主表-审核")
+	 @Operation(summary="入库单主表-审核")
+	 @RequiresPermissions("inorder:wms_stock_in_orders:audit")
+	 @RequestMapping(value = "/audit", method = {RequestMethod.PUT,RequestMethod.POST})
+	 public Result<String> audit(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
+		 wmsStockInOrdersService.audit(wmsStockInOrdersPage);
+		 return Result.OK("审核完成!");
+	 }
 	/**
 	 *   通过id删除
 	 *
@@ -144,34 +175,6 @@ public class WmsStockInOrdersController {
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
 		this.wmsStockInOrdersService.delBatchMain(Arrays.asList(ids.split(",")));
 		return Result.OK("批量删除成功！");
-	}
-
-	/**
-	 * 提交审核: 入库单状态由 初始、审核失败 更新为 提交审核
-	 *
-	 * @param id 入库单id
-	 * @return
-	 */
-	@AutoLog(value = "入库单主表-提交审核")
-	@Operation(summary="入库单主表-提交审核")
-	@PostMapping(value = "/submitAudit")
-	public Result<String> submitAudit(@RequestParam(name="id",required=false) String id) {
-		wmsStockInOrdersService.submitAudit(id);
-		return Result.OK("提交审核成功！");
-	}
-
-	/**
-	 * 审核: 入库单状态由 提交审核 更新为 审核通过 或 审核失败
-	 *
-	 * @param wmsStockInOrders 只用到 id 和 status(审核结果: APPROVED 审核通过, REJECTED 审核失败)
-	 * @return
-	 */
-	@AutoLog(value = "入库单主表-审核")
-	@Operation(summary="入库单主表-审核")
-	@PostMapping(value = "/audit")
-	public Result<String> audit(@RequestBody WmsStockInOrders wmsStockInOrders) {
-		wmsStockInOrdersService.audit(wmsStockInOrders.getId(), wmsStockInOrders.getStatus());
-		return Result.OK("审核成功！");
 	}
 
 	/**
@@ -227,8 +230,6 @@ public class WmsStockInOrdersController {
       }
       //Step.2 获取导出数据
       List<WmsStockInOrders> wmsStockInOrdersList = wmsStockInOrdersService.list(queryWrapper);
-      // 补全货主名称、仓库名称
-      wmsStockInOrdersService.fillOwnerAndWarehouseName(wmsStockInOrdersList);
 
       // Step.3 组装pageList
       List<WmsStockInOrdersPage> pageList = new ArrayList<WmsStockInOrdersPage>();
@@ -245,42 +246,6 @@ public class WmsStockInOrdersController {
       mv.addObject(NormalExcelConstants.FILE_NAME, "入库单主表列表");
       mv.addObject(NormalExcelConstants.CLASS, WmsStockInOrdersPage.class);
       mv.addObject(NormalExcelConstants.PARAMS, new ExportParams("入库单主表数据", "导出人:"+sysUser.getRealname(), "入库单主表"));
-      mv.addObject(NormalExcelConstants.DATA_LIST, pageList);
-      return mv;
-    }
-
-    /**
-    * 导出单个入库单(入库单信息 + 入库明细), 对应入库单页面上的"导出"按钮, 导出为 xlsx 格式
-    *
-    * @param orderId 入库单id
-    */
-    @RequestMapping(value = "/download")
-    public ModelAndView download(@RequestParam(name="orderId",required=true) String orderId) {
-      // Step.1 查询入库单, 补全货主名称、仓库名称
-      WmsStockInOrders main = wmsStockInOrdersService.getById(orderId);
-      if (main == null) {
-          throw new JeecgBootException("未找到对应数据");
-      }
-      List<WmsStockInOrders> mainList = new ArrayList<WmsStockInOrders>();
-      mainList.add(main);
-      wmsStockInOrdersService.fillOwnerAndWarehouseName(mainList);
-
-      // Step.2 组装导出数据: 入库单 + 入库明细(带商品编码、商品名称)
-      WmsStockInOrdersPage vo = new WmsStockInOrdersPage();
-      BeanUtils.copyProperties(main, vo);
-      vo.setWmsStockInOrderItemsList(wmsStockInOrderItemsService.selectByMainId(orderId));
-      List<WmsStockInOrdersPage> pageList = new ArrayList<WmsStockInOrdersPage>();
-      pageList.add(vo);
-
-      // Step.3 AutoPoi 导出Excel(前端按 xlsx 保存, 所以这里指定导出 xlsx 格式)
-      LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
-      String exporter = sysUser == null ? "" : sysUser.getRealname();
-      ExportParams exportParams = new ExportParams("入库单", "导出人:" + exporter, "入库单");
-      exportParams.setType(ExcelType.XSSF);
-      ModelAndView mv = new ModelAndView(new JeecgEntityExcelView());
-      mv.addObject(NormalExcelConstants.FILE_NAME, "入库单" + main.getOrderNumber());
-      mv.addObject(NormalExcelConstants.CLASS, WmsStockInOrdersPage.class);
-      mv.addObject(NormalExcelConstants.PARAMS, exportParams);
       mv.addObject(NormalExcelConstants.DATA_LIST, pageList);
       return mv;
     }

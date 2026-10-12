@@ -7,13 +7,13 @@ import java.util.List;
 /**
  * @Description: 入库单明细
  * @Author: jeecg-boot
- * @Date:   2026-10-06
+ * @Date:   2025-08-30
  * @Version: V1.0
  */
 public interface IWmsStockInOrderItemsService extends IService<WmsStockInOrderItems> {
 
 	/**
-	 * 通过主表id查询子表数据(带商品编码、商品名称)
+	 * 通过主表id查询子表数据
 	 *
 	 * @param mainId 主表id
 	 * @return List<WmsStockInOrderItems>
@@ -21,18 +21,16 @@ public interface IWmsStockInOrderItemsService extends IService<WmsStockInOrderIt
 	public List<WmsStockInOrderItems> selectByMainId(String mainId);
 
 	/**
-	 * 收货后更新入库单明细的收货数量(良品)、不良品数量和状态
-	 * 良品数量 + 不良品数量 = 采购数量 时状态为"收货完成", 否则为"收货中"
-	 *
+	 * 更新收货完成状态
 	 * @param stockInOrderItemId 入库单明细id
 	 */
 	void updateReceivedStatus(String stockInOrderItemId);
 
 	/**
-	 * 上架后更新入库单明细的上架数量和状态
-	 * 上架数量 = 收货数量(良品)时状态为"上架完成"; 没上架完时状态不变(明细没有"上架中"这个状态)
-	 *
+	 * 更新上架完成状态
 	 * @param stockInOrderItemId 入库单明细id
 	 */
-	void updateShelvedStatus(String stockInOrderItemId);
+	void updatePutawayStatus(String stockInOrderItemId);
+
+
 }

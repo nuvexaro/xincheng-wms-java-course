@@ -2,77 +2,76 @@ package org.jeecg.modules.wms.goods.excel;
 
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.read.listener.ReadListener;
+import com.alibaba.excel.util.ListUtils;
+import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
-import org.jeecg.modules.wms.config.ExcelImportResult;
 import org.jeecg.modules.wms.goods.service.IWmsProductsService;
 
-import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @Description: 商品导入监听器: EasyExcel 每读到一行数据就会调用一次 invoke
- *               注意: 监听器不能交给 spring 管理, 每次导入都要 new 一个, 用到的 service 通过构造方法传进来
- * @Version: V1.0
- */
+// 有个很重要的点 DemoDataListener 不能被spring管理，要每次读取excel都要new,然后里面用到spring可以构造方法传进去
 @Slf4j
 public class ImportGoodsListener implements ReadListener<WmsProductsImport> {
 
-    /** 每攒够 100 条存一次数据库, 然后清空缓存, 防止几万条数据全放在内存里 */
+    /**
+     * 每隔5条存储数据库，实际使用中可以100条，然后清理list ，方便内存回收
+     */
     private static final int BATCH_COUNT = 100;
+    /**
+     * 缓存的数据
+     */
+    private List<WmsProductsImport> cachedDataList = ListUtils.newArrayListWithExpectedSize(BATCH_COUNT);
+    /**
+     * 假设这个是一个DAO，当然有业务逻辑这个也可以是一个service。当然如果不用存储这个对象没用。
+     */
+    private IWmsProductsService wmsProductsService;
 
-    /** 缓存的数据 */
-    private List<WmsProductsImport> cachedDataList = new ArrayList<>(BATCH_COUNT);
 
-    private final IWmsProductsService wmsProductsService;
-
-    /** 导入结果: 成功、跳过、失败的条数和原因 */
-    private final ExcelImportResult result = new ExcelImportResult();
-
+    /**
+     * 如果使用了spring,请使用这个构造方法。每次创建Listener的时候需要把spring管理的类传进来
+     *
+     * @param wmsProductsService
+     */
     public ImportGoodsListener(IWmsProductsService wmsProductsService) {
         this.wmsProductsService = wmsProductsService;
     }
 
     /**
-     * 每解析到一行数据都会调用
+     * 这个每一条数据解析都会来调用
+     *
+     * @param data    one row value. Is is same as {@link AnalysisContext#readRowHolder()}
+     * @param context
      */
     @Override
     public void invoke(WmsProductsImport data, AnalysisContext context) {
-        // 行号: getRowIndex 从 0 开始, 加 1 才是 Excel 里看到的行号
-        data.setRowNo(context.readRowHolder().getRowIndex() + 1);
+        log.info("解析到一条数据:{}", JSON.toJSONString(data));
         cachedDataList.add(data);
+        // 达到BATCH_COUNT了，需要去存储一次数据库，防止数据几万条数据在内存，容易OOM
         if (cachedDataList.size() >= BATCH_COUNT) {
             saveData();
-            cachedDataList = new ArrayList<>(BATCH_COUNT);
+            // 存储完成清理 list
+            cachedDataList = ListUtils.newArrayListWithExpectedSize(BATCH_COUNT);
         }
     }
 
     /**
-     * 某一行解析出错(比如数字列里填了文字)时调用: 记下原因, 不抛异常, 这样会继续读下一行
-     */
-    @Override
-    public void onException(Exception exception, AnalysisContext context) {
-        Integer rowNo = context.readRowHolder().getRowIndex() + 1;
-        log.warn("商品导入, 第{}行解析失败: {}", rowNo, exception.getMessage());
-        result.fail(rowNo, "数据格式不正确(数字列请填数字, 日期请填 2026-01-31 这种格式)");
-    }
-
-    /**
-     * 所有数据解析完成后调用: 把最后不满 100 条的数据也存进去
+     * 所有数据解析完成了 都会来调用
+     *
+     * @param context
      */
     @Override
     public void doAfterAllAnalysed(AnalysisContext context) {
+        // 这里也要保存数据，确保最后遗留的数据也存储到数据库
         saveData();
-        log.info("商品导入完成: {}", result.toMessage());
+        log.info("所有数据解析完成！");
     }
 
+    /**
+     * 加上存储数据库
+     */
     private void saveData() {
-        if (cachedDataList.isEmpty()) {
-            return;
-        }
-        wmsProductsService.importProduct(cachedDataList, result);
-    }
-
-    public ExcelImportResult getResult() {
-        return result;
+        log.info("{}条数据，开始存储数据库！", cachedDataList.size());
+        wmsProductsService.importProduct(cachedDataList);
+        log.info("存储数据库成功！");
     }
 }

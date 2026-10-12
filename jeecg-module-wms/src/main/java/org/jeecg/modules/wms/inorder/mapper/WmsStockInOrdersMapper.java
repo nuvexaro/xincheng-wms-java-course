@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 /**
  * @Description: 入库单主表
  * @Author: jeecg-boot
- * @Date:   2026-10-06
+ * @Date:   2025-08-30
  * @Version: V1.0
  */
 public interface WmsStockInOrdersMapper extends BaseMapper<WmsStockInOrders> {

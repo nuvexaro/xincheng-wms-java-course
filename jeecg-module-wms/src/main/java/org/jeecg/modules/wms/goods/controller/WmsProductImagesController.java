@@ -53,7 +53,7 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 public class WmsProductImagesController extends JeecgController<WmsProductImages, IWmsProductImagesService> {
 	@Autowired
 	private IWmsProductImagesService wmsProductImagesService;
-	 @Value("${jeecg.file-view-domain:}")
+	 @Value("${jeecg.file-view-domain}")
 	 private String fileOnlinePreviewUrl;
 	/**
 	 * 分页列表查询

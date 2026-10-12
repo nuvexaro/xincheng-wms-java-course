@@ -1,11 +1,8 @@
 package org.jeecg.modules.wms.inorder.entity;
 
 import java.io.Serializable;
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.TableLogic;
+
+import com.baomidou.mybatisplus.annotation.*;
 import org.jeecg.common.constant.ProvinceCityArea;
 import org.jeecg.common.util.SpringContextUtils;
 import lombok.Data;
@@ -19,7 +16,7 @@ import java.io.UnsupportedEncodingException;
 /**
  * @Description: 入库单明细
  * @Author: jeecg-boot
- * @Date:   2026-10-06
+ * @Date:   2025-08-30
  * @Version: V1.0
  */
 @Schema(description="入库单明细")
@@ -55,6 +52,7 @@ public class WmsStockInOrderItems implements Serializable {
     @Schema(description = "入库单id")
     private String orderId;
 	/**商品id*/
+	@Excel(name = "商品id", width = 15)
     @Schema(description = "商品id")
     private String productId;
 	/**采购数量*/
@@ -78,19 +76,21 @@ public class WmsStockInOrderItems implements Serializable {
     @Schema(description = "备注")
     private String remarks;
 	/**状态*/
-	@Excel(name = "状态", width = 15, dicCode = "asn_item_status")
+	@Excel(name = "状态", width = 15)
     @Schema(description = "状态")
     private String status;
 
-    // ==================== 以下为非数据库字段, 仅用于页面显示 ====================
-    /**商品名称*/
+    //商品名称
     @TableField(exist = false)
-    @Excel(name = "商品名称", width = 25)
-    @Schema(description = "商品名称")
     private String productName;
-    /**商品编码*/
+    //商品编码
     @TableField(exist = false)
-    @Excel(name = "商品编码", width = 20)
-    @Schema(description = "商品编码")
     private String productCode;
+    //入库单号
+    @TableField(exist = false)
+    private String orderNumber;
+
+    //序号
+    @TableField(exist = false)
+    private java.lang.Integer serialNumber;
 }

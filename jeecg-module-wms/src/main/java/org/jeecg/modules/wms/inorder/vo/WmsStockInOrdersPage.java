@@ -1,21 +1,25 @@
 package org.jeecg.modules.wms.inorder.vo;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Data;
-import org.jeecg.common.aspect.annotation.Dict;
-import org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems;
-import org.jeecgframework.poi.excel.annotation.Excel;
-import org.jeecgframework.poi.excel.annotation.ExcelCollection;
-import org.springframework.format.annotation.DateTimeFormat;
-
-import java.util.Date;
 import java.util.List;
+import org.jeecg.modules.wms.inorder.entity.WmsStockInOrders;
+import org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems;
+import lombok.Data;
+import org.jeecgframework.poi.excel.annotation.Excel;
+import org.jeecgframework.poi.excel.annotation.ExcelEntity;
+import org.jeecgframework.poi.excel.annotation.ExcelCollection;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.util.Date;
+import org.jeecg.common.aspect.annotation.Dict;
+import org.jeecg.common.constant.ProvinceCityArea;
+import org.jeecg.common.util.SpringContextUtils;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * @Description: 入库单主表
  * @Author: jeecg-boot
- * @Date:   2026-10-06
+ * @Date:   2025-08-30
  * @Version: V1.0
  */
 @Data
@@ -58,12 +62,9 @@ public class WmsStockInOrdersPage {
 	@Schema(description = "来源单号")
     private String sourceNumber;
 	/**货主id*/
+	@Excel(name = "货主id", width = 15)
 	@Schema(description = "货主id")
     private String ownerId;
-	/**货主名称*/
-	@Excel(name = "货主", width = 20)
-	@Schema(description = "货主名称")
-    private String ownerName;
 	/**预计到货时间*/
 	@Excel(name = "预计到货时间", width = 20, format = "yyyy-MM-dd HH:mm:ss")
 	@JsonFormat(timezone = "GMT+8",pattern = "yyyy-MM-dd HH:mm:ss")
@@ -95,13 +96,10 @@ public class WmsStockInOrdersPage {
 	@Excel(name = "不良品总数量(冗余字段)", width = 15)
 	@Schema(description = "不良品总数量(冗余字段)")
     private Integer totalDefectiveQuantity;
-	/**仓库id*/
+	/**仓库*/
+	@Excel(name = "仓库", width = 15)
 	@Schema(description = "仓库")
     private String warehouseId;
-	/**仓库名称*/
-	@Excel(name = "仓库", width = 20)
-	@Schema(description = "仓库名称")
-    private String warehouseName;
 
 	@ExcelCollection(name="入库单明细")
 	@Schema(description = "入库单明细")

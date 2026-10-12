@@ -4,9 +4,6 @@ import java.util.List;
 
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageZones;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Param;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 
 /**
  * @Description: 库区表
@@ -18,5 +15,5 @@ public interface WmsStorageZonesMapper extends BaseMapper<WmsStorageZones> {
     /**
      * 分页查询库区信息
      */
-    public IPage<WmsStorageZones> queryList(Page<WmsStorageZones> page, @Param("zone") WmsStorageZones wmsStorageZones);
+    public List<WmsStorageZones> queryList(WmsStorageZones wmsStorageZones);
 }

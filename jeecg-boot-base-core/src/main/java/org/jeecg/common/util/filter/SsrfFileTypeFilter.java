@@ -35,6 +35,9 @@ public class SsrfFileTypeFilter {
         FILE_TYPE_WHITE_LIST.add("svg");
         FILE_TYPE_WHITE_LIST.add("ico");
 
+        //css文件
+        FILE_TYPE_WHITE_LIST.add("css");
+
         //文本文件
         FILE_TYPE_WHITE_LIST.add("txt");
         FILE_TYPE_WHITE_LIST.add("doc");

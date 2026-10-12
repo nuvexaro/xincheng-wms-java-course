@@ -1,5 +1,6 @@
 package org.jeecg.modules.wms.goods.controller;
 
+import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 
+import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,6 +19,8 @@ import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.query.QueryRuleEnum;
 import org.jeecg.common.util.oConvertUtils;
 import org.jeecg.modules.wms.goods.entity.*;
+import org.jeecg.modules.wms.goods.excel.ImportGoodsListener;
+import org.jeecg.modules.wms.goods.excel.WmsProductsImport;
 import org.jeecg.modules.wms.goods.service.*;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -40,13 +44,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
-import com.alibaba.excel.EasyExcel;
-import com.alibaba.excel.support.ExcelTypeEnum;
-import java.net.URLEncoder;
-import java.util.ArrayList;
-import org.jeecg.modules.wms.goods.excel.ImportGoodsListener;
-import org.jeecg.modules.wms.goods.excel.WmsProductsImport;
-import org.springframework.beans.BeanUtils;
 
  /**
  * @Description: 商品信息表
@@ -221,77 +218,43 @@ public class WmsProductsController extends JeecgController<WmsProducts, IWmsProd
 	}
 
     /**
-    * 导出excel(EasyExcel): 按页面上的查询条件导出, 勾选了行则只导出勾选的行; 最多导出 1000 条
+    * 导出excel
     *
     * @param request
-    * @param response
-    * @param wmsProducts 查询条件
+    * @param wmsProducts
     */
     @RequiresPermissions("goods:wms_products:exportXls")
     @RequestMapping(value = "/exportXls")
-    public void exportXls(HttpServletRequest request, HttpServletResponse response, WmsProducts wmsProducts) throws IOException {
-        //1. 查询要导出的商品
-        QueryWrapper<WmsProducts> queryWrapper = QueryGenerator.initQueryWrapper(wmsProducts, request.getParameterMap());
-        String selections = request.getParameter("selections");
-        if (oConvertUtils.isNotEmpty(selections)) {
-            queryWrapper.in("id", Arrays.asList(selections.split(",")));
-        }
-        List<WmsProducts> productList = wmsProductsService.page(new Page<WmsProducts>(1, 1000), queryWrapper).getRecords();
-
-        //2. 商品表里存的是货主id、分类id、品牌id, 导出要的是名称: 各查一次, 转成 map<id, 名称>
-        Map<String, String> ownerNameMap = new HashMap<>();
-        Map<String, String> categoryNameMap = new HashMap<>();
-        Map<String, String> brandNameMap = new HashMap<>();
-        List<String> ownerIds = productList.stream().map(WmsProducts::getOwnerId).filter(oConvertUtils::isNotEmpty).distinct().collect(Collectors.toList());
-        if (!ownerIds.isEmpty()) {
-            wmsCargoOwnersService.listByIds(ownerIds).forEach(o -> ownerNameMap.put(o.getId(), o.getOwnerName()));
-        }
-        List<String> categoryIds = productList.stream().map(WmsProducts::getCategoryId).filter(oConvertUtils::isNotEmpty).distinct().collect(Collectors.toList());
-        if (!categoryIds.isEmpty()) {
-            wmsProductCategoriesService.listByIds(categoryIds).forEach(c -> categoryNameMap.put(c.getId(), c.getCategoryName()));
-        }
-        List<String> brandIds = productList.stream().map(WmsProducts::getProductBrand).filter(oConvertUtils::isNotEmpty).distinct().collect(Collectors.toList());
-        if (!brandIds.isEmpty()) {
-            wmsProductBrandService.listByIds(brandIds).forEach(b -> brandNameMap.put(b.getId(), b.getName()));
-        }
-
-        //3. 转成导出模型: 导出哪些列、列的顺序, 由 WmsProductsImport 里的 @ExcelProperty 注解决定
-        List<WmsProductsImport> exportList = new ArrayList<>();
-        for (WmsProducts product : productList) {
-            WmsProductsImport row = new WmsProductsImport();
-            BeanUtils.copyProperties(product, row);
-            row.setOwnerName(ownerNameMap.get(product.getOwnerId()));
-            row.setCategoryName(categoryNameMap.get(product.getCategoryId()));
-            row.setProductBrandName(brandNameMap.get(product.getProductBrand()));
-            exportList.add(row);
-        }
-
-        //4. 用 EasyExcel 把数据写到响应流里, 浏览器收到后下载
-        //   前端页面是按 .xls 保存文件的, 所以这里指定生成 xls 格式
-        response.setContentType("application/vnd.ms-excel");
-        response.setCharacterEncoding("utf-8");
-        String fileName = URLEncoder.encode("商品信息表", "UTF-8").replaceAll("\\+", "%20");
-        response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xls");
-        EasyExcel.write(response.getOutputStream(), WmsProductsImport.class)
-                .excelType(ExcelTypeEnum.XLS)
-                .sheet("商品信息")
-                .doWrite(exportList);
+    public void exportXls(HttpServletRequest request, HttpServletResponse response,WmsProducts wmsProducts) throws IOException {
+		//查询商品列表
+		Result<IPage<WmsProducts>> iPageResult = queryPageList(wmsProducts, 1, 1000, request);
+		List<WmsProducts> list = iPageResult.getResult().getRecords();
+		// 这里注意 有同学反应使用swagger 会导致各种问题，请直接用浏览器或者用postman
+		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+		response.setCharacterEncoding("utf-8");
+		// 这里URLEncoder.encode可以防止中文乱码 当然和easyexcel没有关系
+		String fileName = URLEncoder.encode("测试", "UTF-8").replaceAll("\\+", "%20");
+		response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+		EasyExcel.write(response.getOutputStream(), WmsProducts.class).sheet("模板").doWrite(list);
     }
+//    public ModelAndView exportXls(HttpServletRequest request, WmsProducts wmsProducts) {
+//        return super.exportXls(request, wmsProducts, WmsProducts.class, "商品信息表");
+//    }
 
     /**
-    * 通过excel导入数据(EasyExcel)
-    * Excel 的列名要和 WmsProductsImport 里 @ExcelProperty 的名称一致; 最简单的办法是先导出一份, 在导出的文件上改
+      * 通过excel导入数据
     *
-    * @param file 上传的 Excel 文件
+    * @param file
     * @return
     */
     @RequiresPermissions("goods:wms_products:importExcel")
     @RequestMapping(value = "/importExcel", method = RequestMethod.POST)
-    public Result<?> importExcel(@RequestParam("file") MultipartFile file) throws IOException {
-        // 监听器不能交给 spring 管理, 每次导入都 new 一个, 把 service 通过构造方法传进去
-        ImportGoodsListener listener = new ImportGoodsListener(wmsProductsService);
-        EasyExcel.read(file.getInputStream(), WmsProductsImport.class, listener).sheet().doRead();
-        return Result.OK(listener.getResult().toMessage());
+    public Result<?> importExcel(MultipartFile  file) throws IOException {
+		EasyExcel.read(file.getInputStream(), WmsProductsImport.class, new ImportGoodsListener(wmsProductsService)).sheet().doRead();
+		return Result.OK("文件导入成功！");
     }
+//    public Result<?> importExcel(HttpServletRequest request, HttpServletResponse response) {
+//        return super.importExcel(request, response, WmsProducts.class);
+//    }
 
 }

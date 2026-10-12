@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Param;
 /**
  * @Description: 入库单明细
  * @Author: jeecg-boot
- * @Date:   2026-10-06
+ * @Date:   2025-08-30
  * @Version: V1.0
  */
 public interface WmsStockInOrderItemsMapper extends BaseMapper<WmsStockInOrderItems> {

@@ -29,7 +29,6 @@
             <artifactId>jeecg-module-wms</artifactId>
             <version>${jeecgboot.version}</version>
         </dependency>
-
         <!-- flyway 数据库自动升级
         <dependency>
             <groupId>org.flywaydb</groupId>

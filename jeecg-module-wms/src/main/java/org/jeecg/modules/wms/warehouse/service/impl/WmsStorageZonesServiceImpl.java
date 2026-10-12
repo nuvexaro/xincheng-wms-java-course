@@ -1,13 +1,17 @@
 package org.jeecg.modules.wms.warehouse.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageZones;
 import org.jeecg.modules.wms.warehouse.mapper.WmsStorageZonesMapper;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageZonesService;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+
+import java.util.List;
 
 /**
  * @Description: 库区表
@@ -20,15 +24,15 @@ public class WmsStorageZonesServiceImpl extends ServiceImpl<WmsStorageZonesMappe
 
     @Override
     public IPage<WmsStorageZones> queryList(WmsStorageZones wmsStorageZones, Integer pageNo, Integer pageSize) {
-        //查询条件对象不能为 null, 否则 xml 里的 zone.xxx 会报错
-        if (wmsStorageZones == null) {
-            wmsStorageZones = new WmsStorageZones();
-        }
-        //1. 设置分页参数
-        int current = (pageNo == null || pageNo < 1) ? 1 : pageNo;
-        int size = (pageSize == null || pageSize < 1) ? 10 : pageSize;
-        Page<WmsStorageZones> page = new Page<>(current, size);
-        //2. 查询: 第一个参数是 Page 对象时, mybatis-plus 的分页插件会自动分页并统计总数
-        return baseMapper.queryList(page, wmsStorageZones);
+        //开启分页查询,当执行查询时，插件进行相关的sql拦截进行分页操作，返回一个page对象
+        Page<WmsStorageZones> page = PageHelper.startPage(pageNo, pageSize);
+        List<WmsStorageZones> list = baseMapper.queryList(wmsStorageZones);
+        PageDTO<WmsStorageZones> wmsStorageZonesPageDTO = new PageDTO<>();
+        wmsStorageZonesPageDTO.setRecords(list);
+        wmsStorageZonesPageDTO.setTotal(page.getTotal());
+        wmsStorageZonesPageDTO.setSize(page.getPageSize());
+        wmsStorageZonesPageDTO.setCurrent(page.getPageNum());
+        wmsStorageZonesPageDTO.setPages(page.getPages());
+        return wmsStorageZonesPageDTO;
     }
 }
