@@ -166,7 +166,11 @@ public enum WarehouseDictEnum {
      * 大宗	BULK
      */
     PACKAGE_TYPE_STANDARD("STANDARD", "标准"),
-    PACKAGE_TYPE_BULK("BULK", "大宗");
+    PACKAGE_TYPE_BULK("BULK", "大宗"),
+
+    /*是否生成了运单*/
+    CREATED_WAYBILL("1", "已经生成了运单"),
+    NOT_CREATED_WAYBILL("0", "未生成运单");
 
 
     private final String code;

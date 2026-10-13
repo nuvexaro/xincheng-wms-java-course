@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 
-/**
+ /**
  * @Description: 出库单
  * @Author: jeecg-boot
  * @Date:   2025-05-19
@@ -65,15 +65,15 @@ public class WmsOutOrdersController {
 	@Autowired
 	private IWmsOutOrdersItemsService wmsOutOrdersItemsService;
 
-	@Autowired
-	private IWmsProductsService wmsProductsService;
-	@Autowired
-	private IWmsOutOrdersAllocationService wmsOutOrdersAllocationService;
-	@Autowired
-	private IWmsCargoOwnersService wmsCargoOwnersService;
+	 @Autowired
+	 private IWmsProductsService wmsProductsService;
+	 @Autowired
+	 private IWmsOutOrdersAllocationService wmsOutOrdersAllocationService;
+	 @Autowired
+	 private IWmsCargoOwnersService wmsCargoOwnersService;
 
-	@Autowired
-	private ProvinceCityArea provinceCityArea;
+	 @Autowired
+	 private ProvinceCityArea provinceCityArea;
 
 	/**
 	 * 分页列表查询
@@ -88,9 +88,9 @@ public class WmsOutOrdersController {
 	@Operation(summary="出库单-分页列表查询")
 	@GetMapping(value = "/list")
 	public Result<IPage<WmsOutOrders>> queryPageList(WmsOutOrders wmsOutOrders,
-	                                                 @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
-	                                                 @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
-	                                                 HttpServletRequest req) {
+								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
+								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
+								   HttpServletRequest req) {
 		IPage<WmsOutOrders> pageList = wmsOutOrdersService.queryList(wmsOutOrders, pageNo, pageSize);
 		return Result.OK(pageList);
 	}
@@ -103,7 +103,7 @@ public class WmsOutOrdersController {
 	 */
 	@AutoLog(value = "出库单-添加")
 	@Operation(summary="出库单-添加")
-	@RequiresPermissions("outorder:wms_out_orders:add")
+    @RequiresPermissions("outorder:wms_out_orders:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsOutOrdersPage wmsOutOrdersPage) {
 		WmsOutOrders wmsOutOrders = new WmsOutOrders();
@@ -132,7 +132,7 @@ public class WmsOutOrdersController {
 	 */
 	@AutoLog(value = "出库单-编辑")
 	@Operation(summary="出库单-编辑")
-	@RequiresPermissions("outorder:wms_out_orders:edit")
+    @RequiresPermissions("outorder:wms_out_orders:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsOutOrdersPage wmsOutOrdersPage) {
 		WmsOutOrders wmsOutOrders = new WmsOutOrders();
@@ -170,7 +170,7 @@ public class WmsOutOrdersController {
 	 */
 	@AutoLog(value = "出库单-通过id删除")
 	@Operation(summary="出库单-通过id删除")
-	@RequiresPermissions("outorder:wms_out_orders:delete")
+    @RequiresPermissions("outorder:wms_out_orders:delete")
 	@DeleteMapping(value = "/delete")
 	public Result<String> delete(@RequestParam(name="id",required=true) String id) {
 		wmsOutOrdersService.delMain(id);
@@ -185,7 +185,7 @@ public class WmsOutOrdersController {
 	 */
 	@AutoLog(value = "出库单-批量删除")
 	@Operation(summary="出库单-批量删除")
-	@RequiresPermissions("outorder:wms_out_orders:deleteBatch")
+    @RequiresPermissions("outorder:wms_out_orders:deleteBatch")
 	@DeleteMapping(value = "/deleteBatch")
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
 		this.wmsOutOrdersService.delBatchMain(Arrays.asList(ids.split(",")));
@@ -230,166 +230,166 @@ public class WmsOutOrdersController {
 		});
 		return Result.OK(wmsOutOrdersItemsList);
 	}
-	/**
-	 * 通过id查询
-	 *
-	 * @param id
-	 * @return
-	 */
-	//@AutoLog(value = "出库单分配明细通过主表ID查询")
-	@Operation(summary="出库单分配明细-通主表ID查询")
-	@GetMapping(value = "/queryWmsOutOrdersAllocationByMainId")
-	public Result<List<WmsOutOrdersAllocation>> queryWmsOutOrdersAllocationListByMainId(@RequestParam(name="id",required=true) String id) {
-		List<WmsOutOrdersAllocation> wmsOutOrdersAllocationList = wmsOutOrdersAllocationService.selectByMainId(id);
-		return Result.OK(wmsOutOrdersAllocationList);
-	}
+	 /**
+	  * 通过id查询
+	  *
+	  * @param id
+	  * @return
+	  */
+	 //@AutoLog(value = "出库单分配明细通过主表ID查询")
+	 @Operation(summary="出库单分配明细-通主表ID查询")
+	 @GetMapping(value = "/queryWmsOutOrdersAllocationByMainId")
+	 public Result<List<WmsOutOrdersAllocation>> queryWmsOutOrdersAllocationListByMainId(@RequestParam(name="id",required=true) String id) {
+		 List<WmsOutOrdersAllocation> wmsOutOrdersAllocationList = wmsOutOrdersAllocationService.selectByMainId(id);
+		 return Result.OK(wmsOutOrdersAllocationList);
+	 }
 
-	/**
-	 * 提交审核
-	 */
-	@AutoLog(value = "出库单主表-提交审核")
-	@Operation(summary="出库单主表-提交审核")
-	@PostMapping(value = "/submitAudit")
-	public Result<String> submit(@RequestParam(name="id",required=true)String id) {
-		wmsOutOrdersService.submitAudit(id);
-		return Result.OK("提交成功！");
-	}
-	/**
-	 *  审核
-	 *
-	 * @param wmsOutOrders
-	 * @return
-	 */
-	@AutoLog(value = "出库单主表-审核")
-	@Operation(summary="出库单主表-审核")
-	@RequestMapping(value = "/audit", method = {RequestMethod.PUT,RequestMethod.POST})
-	public Result<String> audit(@RequestBody WmsOutOrders wmsOutOrders) {
-		wmsOutOrdersService.audit(wmsOutOrders);
-		return Result.OK("审核完成!");
-	}
+	 /**
+	  * 提交审核
+	  */
+	 @AutoLog(value = "出库单主表-提交审核")
+	 @Operation(summary="出库单主表-提交审核")
+	 @PostMapping(value = "/submitAudit")
+	 public Result<String> submit(@RequestParam(name="id",required=true)String id) {
+		 wmsOutOrdersService.submitAudit(id);
+		 return Result.OK("提交成功！");
+	 }
+	 /**
+	  *  审核
+	  *
+	  * @param wmsOutOrders
+	  * @return
+	  */
+	 @AutoLog(value = "出库单主表-审核")
+	 @Operation(summary="出库单主表-审核")
+	 @RequestMapping(value = "/audit", method = {RequestMethod.PUT,RequestMethod.POST})
+	 public Result<String> audit(@RequestBody WmsOutOrders wmsOutOrders) {
+		 wmsOutOrdersService.audit(wmsOutOrders);
+		 return Result.OK("审核完成!");
+	 }
 
-	/**
-	 * 分配库存
-	 */
-	@AutoLog(value = "出库单-分配库存")
-	@Operation(summary="出库单-分配库存")
-	@PostMapping(value = "/allocateStock")
-	public Result<String> allocateStock(@RequestParam(name="ids",required=true) String ids) {
+	 /**
+	  * 分配库存
+	  */
+	 @AutoLog(value = "出库单-分配库存")
+	 @Operation(summary="出库单-分配库存")
+	 @PostMapping(value = "/allocateStock")
+	 public Result<String> allocateStock(@RequestParam(name="ids",required=true) String ids) {
 
-		//非空校验
-		if (StringUtils.isEmpty(ids)) {
-			return Result.error("请选择需要分配库存的订单");
-		}
-		//分配成功数量
-		int allocatedCount = 0;
-		//失败原因(原来失败时只打印一句"分配库存失败", 看不出原因, 这里把原因记下来返回给页面)
-		java.util.List<String> failReasons = new java.util.ArrayList<>();
-		String[] idArray = ids.split(",");
-		for (String id : idArray) {
-			String i = WarehouseDictEnum.OUTBOUND_FAILED.getCode();
-			try {
-				//分配库存
-				i = wmsOutOrdersService.allocateStock(id);
-			} catch (Exception e) {
-				String reason = e.getMessage() != null ? e.getMessage() : e.toString();
-				log.error("出库单{}分配库存失败: {}", id, reason, e);
-				failReasons.add(reason);
-			}
-			if (i.equals(WarehouseDictEnum.OUTBOUND_ALLOCATED.getCode())) {
-				//成功数量加1
-				allocatedCount++;
-			}
-		}
-		//失败数量
-		int failNum = idArray.length - allocatedCount;
-		String message = "分配库存成功" + allocatedCount + "条,失败" + failNum + "条";
-		if (!failReasons.isEmpty()) {
-			message = message + "。失败原因: " + String.join("; ", failReasons);
-		}
-		return Result.OK(message);
+		 //非空校验
+		 if (StringUtils.isEmpty(ids)) {
+			 return Result.error("请选择需要分配库存的订单");
+		 }
+		 //分配成功数量
+		 int allocatedCount = 0;
+		 //失败原因(原来失败时只打印一句"分配库存失败", 看不出原因, 这里把原因记下来返回给页面)
+		 java.util.List<String> failReasons = new java.util.ArrayList<>();
+		 String[] idArray = ids.split(",");
+		 for (String id : idArray) {
+			 String i = WarehouseDictEnum.OUTBOUND_FAILED.getCode();
+			 try {
+				 //分配库存
+				 i = wmsOutOrdersService.allocateStock(id);
+			 } catch (Exception e) {
+				 String reason = e.getMessage() != null ? e.getMessage() : e.toString();
+				 log.error("出库单{}分配库存失败: {}", id, reason, e);
+				 failReasons.add(reason);
+			 }
+			 if (i.equals(WarehouseDictEnum.OUTBOUND_ALLOCATED.getCode())) {
+				 //成功数量加1
+				 allocatedCount++;
+			 }
+		 }
+		 //失败数量
+		 int failNum = idArray.length - allocatedCount;
+		 String message = "分配库存成功" + allocatedCount + "条,失败" + failNum + "条";
+		 if (!failReasons.isEmpty()) {
+			 message = message + "。失败原因: " + String.join("; ", failReasons);
+		 }
+		 return Result.OK(message);
 
-	}
+	 }
 
-	/**
-	 * 导出excel
-	 *
-	 * @param request
-	 * @param wmsOutOrders
-	 */
-	@RequiresPermissions("outorder:wms_out_orders:exportXls")
-	@RequestMapping(value = "/exportXls")
-	public ModelAndView exportXls(HttpServletRequest request, WmsOutOrders wmsOutOrders) {
-		// Step.1 组装查询条件查询数据
-		QueryWrapper<WmsOutOrders> queryWrapper = QueryGenerator.initQueryWrapper(wmsOutOrders, request.getParameterMap());
-		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+    /**
+    * 导出excel
+    *
+    * @param request
+    * @param wmsOutOrders
+    */
+    @RequiresPermissions("outorder:wms_out_orders:exportXls")
+    @RequestMapping(value = "/exportXls")
+    public ModelAndView exportXls(HttpServletRequest request, WmsOutOrders wmsOutOrders) {
+      // Step.1 组装查询条件查询数据
+      QueryWrapper<WmsOutOrders> queryWrapper = QueryGenerator.initQueryWrapper(wmsOutOrders, request.getParameterMap());
+      LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
 
-		//配置选中数据查询条件
-		String selections = request.getParameter("selections");
-		if(oConvertUtils.isNotEmpty(selections)) {
-			List<String> selectionList = Arrays.asList(selections.split(","));
-			queryWrapper.in("id",selectionList);
-		}
-		//Step.2 获取导出数据
-		List<WmsOutOrders> wmsOutOrdersList = wmsOutOrdersService.list(queryWrapper);
+      //配置选中数据查询条件
+      String selections = request.getParameter("selections");
+      if(oConvertUtils.isNotEmpty(selections)) {
+         List<String> selectionList = Arrays.asList(selections.split(","));
+         queryWrapper.in("id",selectionList);
+      }
+      //Step.2 获取导出数据
+      List<WmsOutOrders> wmsOutOrdersList = wmsOutOrdersService.list(queryWrapper);
 
-		// Step.3 组装pageList
-		List<WmsOutOrdersPage> pageList = new ArrayList<WmsOutOrdersPage>();
-		for (WmsOutOrders main : wmsOutOrdersList) {
-			WmsOutOrdersPage vo = new WmsOutOrdersPage();
-			BeanUtils.copyProperties(main, vo);
-			List<WmsOutOrdersItems> wmsOutOrdersItemsList = wmsOutOrdersItemsService.selectByMainId(main.getId());
-			vo.setWmsOutOrdersItemsList(wmsOutOrdersItemsList);
-			pageList.add(vo);
-		}
+      // Step.3 组装pageList
+      List<WmsOutOrdersPage> pageList = new ArrayList<WmsOutOrdersPage>();
+      for (WmsOutOrders main : wmsOutOrdersList) {
+          WmsOutOrdersPage vo = new WmsOutOrdersPage();
+          BeanUtils.copyProperties(main, vo);
+          List<WmsOutOrdersItems> wmsOutOrdersItemsList = wmsOutOrdersItemsService.selectByMainId(main.getId());
+          vo.setWmsOutOrdersItemsList(wmsOutOrdersItemsList);
+          pageList.add(vo);
+      }
 
-		// Step.4 AutoPoi 导出Excel
-		ModelAndView mv = new ModelAndView(new JeecgEntityExcelView());
-		mv.addObject(NormalExcelConstants.FILE_NAME, "出库单列表");
-		mv.addObject(NormalExcelConstants.CLASS, WmsOutOrdersPage.class);
-		mv.addObject(NormalExcelConstants.PARAMS, new ExportParams("出库单数据", "导出人:"+sysUser.getRealname(), "出库单"));
-		mv.addObject(NormalExcelConstants.DATA_LIST, pageList);
-		return mv;
-	}
+      // Step.4 AutoPoi 导出Excel
+      ModelAndView mv = new ModelAndView(new JeecgEntityExcelView());
+      mv.addObject(NormalExcelConstants.FILE_NAME, "出库单列表");
+      mv.addObject(NormalExcelConstants.CLASS, WmsOutOrdersPage.class);
+      mv.addObject(NormalExcelConstants.PARAMS, new ExportParams("出库单数据", "导出人:"+sysUser.getRealname(), "出库单"));
+      mv.addObject(NormalExcelConstants.DATA_LIST, pageList);
+      return mv;
+    }
 
-	/**
-	 * 通过excel导入数据
-	 *
-	 * @param request
-	 * @param response
-	 * @return
-	 */
-	@RequiresPermissions("outorder:wms_out_orders:importExcel")
-	@RequestMapping(value = "/importExcel", method = RequestMethod.POST)
-	public Result<?> importExcel(HttpServletRequest request, HttpServletResponse response) {
-		MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
-		Map<String, MultipartFile> fileMap = multipartRequest.getFileMap();
-		for (Map.Entry<String, MultipartFile> entity : fileMap.entrySet()) {
-			// 获取上传文件对象
-			MultipartFile file = entity.getValue();
-			ImportParams params = new ImportParams();
-			params.setTitleRows(2);
-			params.setHeadRows(1);
-			params.setNeedSave(true);
-			try {
-				List<WmsOutOrdersPage> list = ExcelImportUtil.importExcel(file.getInputStream(), WmsOutOrdersPage.class, params);
-				for (WmsOutOrdersPage page : list) {
-					WmsOutOrders po = new WmsOutOrders();
-					BeanUtils.copyProperties(page, po);
-					wmsOutOrdersService.saveMain(po, page.getWmsOutOrdersItemsList());
-				}
-				return Result.OK("文件导入成功！数据行数:" + list.size());
-			} catch (Exception e) {
-				log.error(e.getMessage(),e);
-				return Result.error("文件导入失败:"+e.getMessage());
-			} finally {
-				try {
-					file.getInputStream().close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		return Result.OK("文件导入失败！");
-	}
+    /**
+    * 通过excel导入数据
+    *
+    * @param request
+    * @param response
+    * @return
+    */
+    @RequiresPermissions("outorder:wms_out_orders:importExcel")
+    @RequestMapping(value = "/importExcel", method = RequestMethod.POST)
+    public Result<?> importExcel(HttpServletRequest request, HttpServletResponse response) {
+      MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
+      Map<String, MultipartFile> fileMap = multipartRequest.getFileMap();
+      for (Map.Entry<String, MultipartFile> entity : fileMap.entrySet()) {
+          // 获取上传文件对象
+          MultipartFile file = entity.getValue();
+          ImportParams params = new ImportParams();
+          params.setTitleRows(2);
+          params.setHeadRows(1);
+          params.setNeedSave(true);
+          try {
+              List<WmsOutOrdersPage> list = ExcelImportUtil.importExcel(file.getInputStream(), WmsOutOrdersPage.class, params);
+              for (WmsOutOrdersPage page : list) {
+                  WmsOutOrders po = new WmsOutOrders();
+                  BeanUtils.copyProperties(page, po);
+                  wmsOutOrdersService.saveMain(po, page.getWmsOutOrdersItemsList());
+              }
+              return Result.OK("文件导入成功！数据行数:" + list.size());
+          } catch (Exception e) {
+              log.error(e.getMessage(),e);
+              return Result.error("文件导入失败:"+e.getMessage());
+          } finally {
+              try {
+                  file.getInputStream().close();
+              } catch (IOException e) {
+                  e.printStackTrace();
+              }
+          }
+      }
+      return Result.OK("文件导入失败！");
+    }
 
 }

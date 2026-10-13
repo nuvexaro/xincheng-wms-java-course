@@ -9,7 +9,6 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.exception.JeecgBootBizTipException;
 import org.jeecg.common.exception.JeecgBootException;
@@ -50,9 +49,9 @@ import java.util.stream.Collectors;
 @Service
 public class WmsOutOrdersServiceImpl extends ServiceImpl<WmsOutOrdersMapper, WmsOutOrders> implements IWmsOutOrdersService {
 
-	@Resource
+	@Autowired
 	private WmsOutOrdersMapper wmsOutOrdersMapper;
-	@Resource
+	@Autowired
 	private WmsOutOrdersItemsMapper wmsOutOrdersItemsMapper;
 	@Autowired
 	private IWmsOutOrdersItemsService wmsOutOrdersItemsService;
