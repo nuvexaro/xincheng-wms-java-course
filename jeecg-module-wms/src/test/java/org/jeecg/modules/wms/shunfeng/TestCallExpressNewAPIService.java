@@ -19,8 +19,8 @@ public class TestCallExpressNewAPIService {
 	/**丰桥新沙箱测试顾客编码  Yg4Zf06w_sxZs3A5D
                       校验码  3Xdk1jqeG1Xod9nUXus8Op7DNOkchTnw
     **/
-	private static final String CLIENT_CODE = "Y2VL6F82";  //此处替换为您在丰桥平台获取的顾客编码
-	private static final String CHECK_WORD = "jy1HZyiDinIuipRALDjdKksUtstLveBy";//此处替换为您在丰桥平台获取的校验码
+	private static final String CLIENT_CODE = "Y8LYJSPJ";  //此处替换为您在丰桥平台获取的顾客编码
+	private static final String CHECK_WORD = "o7Usk00IlGVhILcv8kJa3dAyDTDcCtSf";//此处替换为您在丰桥平台获取的校验码
 
 
 	//沙箱环境的地址 -PRO
