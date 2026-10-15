@@ -8,6 +8,7 @@ import org.jeecg.modules.wms.shipment.entity.WmsShipmentDetail;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Description: 运单服务接口类
@@ -30,6 +31,13 @@ public interface IWmsWaybillService  {
 	 * @return 运单id
 	 */
 	public List<String> selectWaybillNosByWaveId(String waveId);
+
+	/**
+	 * 根据波次id查询打印面单的数据: 每个出库单一组, 第一个包裹是主单, 其余是子单
+	 * @param waveId 波次id
+	 * @return 顺丰云打印需要的 documents
+	 */
+	public List<Map<String, Object>> selectPrintDocumentsByWaveId(String waveId);
 
 
 	/**

@@ -14,6 +14,7 @@ import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.jeecg.common.aspect.annotation.Lock;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.util.DateUtils;
 import org.jeecg.common.util.RedisUtil;
@@ -39,13 +40,20 @@ import org.jeecg.modules.wms.wave.entity.WmsWaveMaster;
 import org.jeecg.modules.wms.wave.service.IWmsWaveMasterService;
 import org.jeecg.modules.wms.waybill.service.IWmsSfService;
 import org.jeecg.modules.wms.waybill.service.IWmsWaybillService;
+import org.jeecg.modules.wms.wmstask.entity.WmsTasks;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords;
 import org.jeecg.modules.wms.wmstask.service.IWmsTasksRecordsService;
+import org.jeecg.modules.wms.wmstask.service.IWmsTasksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -71,6 +79,9 @@ public class WmsWaybillServiceImpl  implements IWmsWaybillService {
 	private IWmsTasksRecordsService wmsTasksRecordsService;
 
 	@Autowired
+	private IWmsTasksService wmsTasksService;
+
+	@Autowired
 	private WmsWaybillServiceImpl owner;
 
 	@Autowired
@@ -94,8 +105,11 @@ public class WmsWaybillServiceImpl  implements IWmsWaybillService {
 	public void send(String waveId){
 		//根据波次id查询出库单
 		List<WmsOutOrders> wmsOutOrders = wmsOutOrdersService.selectByMainId(waveId);
+		if (wmsOutOrders == null || wmsOutOrders.isEmpty()) {
+			throw new JeecgBootException("波次下没有出库单");
+		}
 		//判断wmsOutOrders中是否存在未创建运单的出库单
-		if(wmsOutOrders.stream().anyMatch(order -> order.getCreatedWaybill().equals("0"))){
+		if(wmsOutOrders.stream().anyMatch(order -> !WarehouseDictEnum.CREATED_WAYBILL.getCode().equals(order.getCreatedWaybill()))){
 			throw new JeecgBootException("波次下存在未创建运单的出库单暂时无法发货！");
 		}
 		//更新订单的状态为已发货
@@ -139,30 +153,74 @@ public class WmsWaybillServiceImpl  implements IWmsWaybillService {
 				}
 
 		//============================扣减库存==========================
-		//找到拣货储位
-		List<WmsTasksRecords> list = wmsTasksRecordsService.list(new LambdaQueryWrapper<WmsTasksRecords>().eq(WmsTasksRecords::getWaveOrderId, waveId));
-		WmsTasksRecords wmsTasksRecords = list.get(0);
-		String targetLocationCode = wmsTasksRecords.getTargetLocationCode();
+		//发货位: 拣货时商品从存储位拣到了发货位(拣货记录的目的储位), 发货要扣减发货位上的库存
+		//原来的代码只取了第一条拣货记录的储位, 波次里有多个商品、拣到不同储位时会扣错; 这里按 商品 + 发货位 汇总
+		//  通过"这个波次的拣货任务"找拣货记录: 不依赖拣货记录上的波次id, 改代码之前拣的货也能找到
+		List<String> pickTaskIds = wmsTasksService.list(new LambdaQueryWrapper<WmsTasks>()
+						.eq(WmsTasks::getWaveOrderId, waveId)
+						.eq(WmsTasks::getTaskType, WarehouseDictEnum.TASK_TYPE_PICKING.getCode()))
+				.stream().map(WmsTasks::getId).collect(Collectors.toList());
+		if (pickTaskIds.isEmpty()) {
+			throw new JeecgBootException("波次下没有拣货任务，无法扣减库存");
+		}
+		List<WmsTasksRecords> pickRecords = wmsTasksRecordsService.list(new LambdaQueryWrapper<WmsTasksRecords>()
+				.in(WmsTasksRecords::getTaskId, pickTaskIds));
+		if (pickRecords.isEmpty()) {
+			throw new JeecgBootException("波次下没有拣货记录，无法扣减库存");
+		}
+		//key=商品id, value=(发货位 -> 这个波次拣到该发货位的数量), 按拣货先后保持顺序
+		Map<String, LinkedHashMap<String, Integer>> pickedMap = new LinkedHashMap<>();
+		for (WmsTasksRecords record : pickRecords) {
+			int qty = record.getExecQuantity() == null ? 0 : record.getExecQuantity();
+			if (qty <= 0 || StringUtils.isBlank(record.getTargetLocationCode())) {
+				continue;
+			}
+			pickedMap.computeIfAbsent(record.getProductId(), k -> new LinkedHashMap<>())
+					.merge(record.getTargetLocationCode(), qty, Integer::sum);
+		}
+		String warehouseId = pickRecords.get(0).getTargetWarehouseId();
 		//遍历出库单扣减库存
 		for (WmsOutOrders outOrder : wmsOutOrders){
 			//查询出库单明细
 			List<WmsOutOrdersItems> wmsOutOrdersItems = wmsOutOrdersItemsService.selectByMainId(outOrder.getId());
 			for (WmsOutOrdersItems item : wmsOutOrdersItems){
-				WmsInventoryTransParam inventoryTransParam = new WmsInventoryTransParam();
-				inventoryTransParam.setProductId(item.getSkuId());
-				inventoryTransParam.setExecQuantity(item.getPickedQuantity());
-				inventoryTransParam.setSourceLocationCode(targetLocationCode);
-				inventoryTransParam.setWarehouseId(wmsTasksRecords.getTargetWarehouseId());
-				inventoryTransParam.setBatchNumber(item.getBatchNumber());
-				inventoryTransParam.setTransactionType(WarehouseDictEnum.INVENTORY_OUTBOUND.getCode());
-				//上架时间
-				inventoryTransParam.setOperationTime(wmsTasksRecords.getOperationTime());
-				wmsInventoryTransByDeliver.transfer(inventoryTransParam);
+				//变更数量是打包的数量(课件 9.8)
+				int need = item.getPackedQuantity() == null ? 0 : item.getPackedQuantity();
+				if (need <= 0) {
+					continue;
+				}
+				Map<String, Integer> locations = pickedMap.get(item.getSkuId());
+				if (locations == null || locations.isEmpty()) {
+					throw new JeecgBootException("出库单" + outOrder.getOrderNo() + "的商品没有拣货记录，无法扣减库存");
+				}
+				//从这个商品的各个发货位依次扣, 直到扣够打包数量
+				for (Map.Entry<String, Integer> location : locations.entrySet()) {
+					if (need <= 0) {
+						break;
+					}
+					int take = Math.min(need, location.getValue());
+					if (take <= 0) {
+						continue;
+					}
+					WmsInventoryTransParam inventoryTransParam = new WmsInventoryTransParam();
+					inventoryTransParam.setProductId(item.getSkuId());
+					inventoryTransParam.setExecQuantity(take);
+					inventoryTransParam.setSourceLocationCode(location.getKey());
+					inventoryTransParam.setWarehouseId(warehouseId);
+					inventoryTransParam.setBatchNumber(item.getBatchNumber());
+					inventoryTransParam.setTransactionType(WarehouseDictEnum.INVENTORY_OUTBOUND.getCode());
+					inventoryTransParam.setRemarks(outOrder.getOrderNo());
+					inventoryTransParam.setOperationTime(new Date());
+					wmsInventoryTransByDeliver.transfer(inventoryTransParam);
+					//这个发货位还剩多少可以扣(同一商品的下一个出库单接着扣)
+					location.setValue(location.getValue() - take);
+					need -= take;
+				}
+				if (need > 0) {
+					throw new JeecgBootException("出库单" + outOrder.getOrderNo() + "的打包数量大于拣货数量，无法扣减库存");
+				}
 			}
 		}
-
-
-
 	}
 
 
@@ -171,26 +229,85 @@ public class WmsWaybillServiceImpl  implements IWmsWaybillService {
 	 * @param waveId 波次id
 	 * @return 运单id
 	 */
+	/**
+	 * 根据波次id查询打印面单的数据
+	 * 原来前端把整个波次的运单号当成"一个主单 + 若干子单"来打印, 波次里有多个出库单、或者主单不在第一个时,
+	 * 顺丰会提示"获取数据失败"。这里按出库单分组: 每个出库单的第一个包裹是主单, 其余是这个主单的子单
+	 */
+	@Override
+	public List<Map<String, Object>> selectPrintDocumentsByWaveId(String waveId) {
+		//根据波次id查询出库单
+		List<WmsOutOrders> wmsOutOrders = wmsOutOrdersService.selectByMainId(waveId);
+		if (wmsOutOrders == null || wmsOutOrders.isEmpty()) {
+			throw new JeecgBootException("波次下没有出库单");
+		}
+		if(wmsOutOrders.stream().anyMatch(order -> !WarehouseDictEnum.CREATED_WAYBILL.getCode().equals(order.getCreatedWaybill()))){
+			throw new JeecgBootException("波次下存在未创建运单的出库单，请稍后再试！");
+		}
+		//一次查出波次下所有出库单的包裹(不再一张出库单查一次), 按出库单分组
+		//每组按包裹id排序(和保存运单号时的顺序一致, 第一个是主单)
+		Map<String, List<WmsShipment>> shipmentsByOrder = wmsShipmentService.list(new LambdaQueryWrapper<WmsShipment>()
+						.in(WmsShipment::getOrderId, wmsOutOrders.stream().map(WmsOutOrders::getId).collect(Collectors.toList())))
+				.stream()
+				.filter(sh -> StringUtils.isNotBlank(sh.getTrackingNo()))
+				.sorted(Comparator.comparing(WmsShipment::getId))
+				.collect(Collectors.groupingBy(WmsShipment::getOrderId));
+		List<Map<String, Object>> documents = new ArrayList<>();
+		for (WmsOutOrders order : wmsOutOrders) {
+			List<WmsShipment> shipments = shipmentsByOrder.get(order.getId());
+			if (shipments == null || shipments.isEmpty()) {
+				continue;
+			}
+			String masterWaybillNo = shipments.get(0).getTrackingNo();
+			for (int i = 0; i < shipments.size(); i++) {
+				Map<String, Object> document = new HashMap<>();
+				document.put("masterWaybillNo", masterWaybillNo);
+				//第一个是主单, 不传子单号; 其余的是子单
+				if (i > 0) {
+					document.put("branchWaybillNo", shipments.get(i).getTrackingNo());
+				}
+				document.put("seq", i + 1);
+				document.put("sum", shipments.size());
+				document.put("remark", "");
+				documents.add(document);
+			}
+		}
+		if (documents.isEmpty()) {
+			throw new JeecgBootException("波次下的包裹还没有运单号");
+		}
+		return documents;
+	}
+
 	public List<String> selectWaybillNosByWaveId(String waveId){
 		//根据波次id查询出库单
 		List<WmsOutOrders> wmsOutOrders = wmsOutOrdersService.selectByMainId(waveId);
+		if (wmsOutOrders == null || wmsOutOrders.isEmpty()) {
+			throw new JeecgBootException("波次下没有出库单");
+		}
 		//判断wmsOutOrders中是否存在未创建运单的出库单
-		if(wmsOutOrders.stream().anyMatch(order -> order.getCreatedWaybill().equals("0"))){
+		if(wmsOutOrders.stream().anyMatch(order -> !WarehouseDictEnum.CREATED_WAYBILL.getCode().equals(order.getCreatedWaybill()))){
 			throw new JeecgBootException("波次下存在未创建运单的出库单，请稍后再试！");
 		}
 		//根据订单id查询包裹并得到运单号
 		LambdaQueryWrapper<WmsShipment> in = new LambdaQueryWrapper<WmsShipment>()
 				.in(WmsShipment::getOrderId, wmsOutOrders.stream().map(WmsOutOrders::getId).collect(Collectors.toList()));
 		List<WmsShipment> wmsShipments = wmsShipmentService.list(in);
-		//获取运单号
-		List<String> waybillNos = wmsShipments.stream().map(WmsShipment::getTrackingNo).collect(Collectors.toList());
+		//获取运单号(去掉没有运单号的包裹)
+		List<String> waybillNos = wmsShipments.stream().map(WmsShipment::getTrackingNo)
+				.filter(StringUtils::isNotBlank).collect(Collectors.toList());
+		if (waybillNos.isEmpty()) {
+			throw new JeecgBootException("波次下的包裹还没有运单号");
+		}
 		return waybillNos;
 	}
 
 	/**
 	 * 请求顺丰生成指定订单的运单
 	 * 首先请求顺丰下单，成功后生成运单
+	 * 分布式锁(第三章 9.7): 系统部署多个实例时, 每个实例的定时任务都会处理同一批出库单,
+	 * 加锁后同一个出库单同一时刻只有一个线程能生成运单, 拿不到锁的直接放弃(下一轮再看)
 	 */
+	@Lock(formatter = "ORDERS:CREATEWAYBILL:LOCK:#{orderId}", startDog = true)
 	public void generateWaybillForOrder(String orderId) throws Exception {
 		// 查询出库单
 		WmsOutOrders order = wmsOutOrdersService.getById(orderId);
@@ -210,6 +327,9 @@ public class WmsWaybillServiceImpl  implements IWmsWaybillService {
 		if (shipments == null || shipments.isEmpty()) {
 			throw new JeecgBootException("出库单" + order.getOrderNo() + "没有包裹，不能生成运单");
 		}
+		// 包裹按id排序: 保存运单号和打印面单都按这个顺序, 第一个包裹存主单号, 打印时才能对上
+		shipments = new ArrayList<>(shipments);
+		shipments.sort(Comparator.comparing(WmsShipment::getId));
 		// 调用顺丰创建运单: 一个包裹对应一个运单号
 		List<String> waybillNos = sfService.requestSfCreateOrder(order, shipments);
 		if (waybillNos == null || waybillNos.size() != shipments.size()) {

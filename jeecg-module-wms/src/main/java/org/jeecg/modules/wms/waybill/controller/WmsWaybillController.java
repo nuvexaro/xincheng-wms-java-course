@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.UnsupportedEncodingException;
 import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.jeecg.common.exception.JeecgBootException;
+import java.util.ArrayList;
+import java.util.Map;
 
 
 /**
@@ -42,7 +46,23 @@ public class WmsWaybillController {
     @Operation(summary="波次-打印电子面单")
     @GetMapping (value = "/printWaybill")
     public Result<PrintWaybillResult> printWaybill(@RequestParam(name="waveId",required=true) String waveId) throws UnsupportedEncodingException {
+        // 查询打印数据: 按出库单分好主单、子单(运单号从这里取, 不再单独查一次)
+        List<Map<String, Object>> documents = wmsWaybillService.selectPrintDocumentsByWaveId(waveId);
+        List<String> waybillNos = new ArrayList<>();
+        for (Map<String, Object> document : documents) {
+            Object no = document.containsKey("branchWaybillNo") ? document.get("branchWaybillNo") : document.get("masterWaybillNo");
+            waybillNos.add(String.valueOf(no));
+        }
+        // 请求顺丰拿token(前端用 token 调顺丰云打印)
+        String token = SfExpressUtil.getToken();
+        if (StringUtils.isBlank(token)) {
+            throw new JeecgBootException("获取顺丰token失败, 请检查顺丰参数配置");
+        }
         PrintWaybillResult printWaybillResult = new PrintWaybillResult();
+        printWaybillResult.setToken(token);
+        printWaybillResult.setWaybillNos(waybillNos);
+        // 按出库单分好主单、子单的打印数据, 前端直接用
+        printWaybillResult.setDocuments(documents);
         return Result.OK(printWaybillResult);
     }
     /**

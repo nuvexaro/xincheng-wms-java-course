@@ -30,6 +30,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -207,7 +208,10 @@ public class IWmsSfServiceImpl implements IWmsSfService {
         List<SfApiResponse.WaybillNoInfo> waybillNoInfoList = apiResultData1.getWaybillNoInfoList();
         if (waybillNoInfoList != null && waybillNoInfoList.size() == shipmentSize) {
             //取出waybillNoInfoList中的运单号,得到List<String>
-            List<String> waybillNos = waybillNoInfoList.stream().map(SfApiResponse.WaybillNoInfo::getWaybillNo).collect(Collectors.toList());
+            //主单(waybillType=1)排在最前面, 子单排在后面: 保存时第一个包裹存主单号, 打印面单时要用主单号
+            List<String> waybillNos = waybillNoInfoList.stream()
+                    .sorted(Comparator.comparingInt(SfApiResponse.WaybillNoInfo::getWaybillType))
+                    .map(SfApiResponse.WaybillNoInfo::getWaybillNo).collect(Collectors.toList());
             return waybillNos;
         }
         log.error("出库单{}顺丰返回的运单号数量和包裹数量({})不一致: {}", order.getOrderNo(), shipmentSize, msgData);

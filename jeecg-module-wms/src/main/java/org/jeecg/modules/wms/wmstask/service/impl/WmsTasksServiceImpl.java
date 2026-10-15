@@ -246,6 +246,10 @@ public class WmsTasksServiceImpl extends ServiceImpl<WmsTasksMapper, WmsTasks> i
         //2.添加任务执行记录
         //目标仓库id
         wmsTasksRecords.setTargetWarehouseId(wmsTasks.getTargetWarehouseId());
+        //波次id(拣货任务才有, 课件 9.8: 发货时要通过它找拣货记录)
+        wmsTasksRecords.setWaveOrderId(wmsTasks.getWaveOrderId());
+        //波次拣货明细id(拣货任务才有)
+        wmsTasksRecords.setWaveSkuSummaryId(wmsTasks.getWaveSkuSummaryId());
         //入库单id
         wmsTasksRecords.setStockInOrderId(wmsTasks.getStockInOrderId());
         //入库单明细id
@@ -276,7 +280,8 @@ public class WmsTasksServiceImpl extends ServiceImpl<WmsTasksMapper, WmsTasks> i
         //完成数量
         completedQuantity = wmsTasks.getCompletedQuantity();
         //更新任务为已完成
-        if(completedQuantity==wmsTasks.getQuantity()) {
+        //注意: 两个 Integer 不能用 == 比较, 数值超过 127 时比较的是对象地址, 结果一直是 false, 任务永远不会变成已完成
+        if(completedQuantity != null && completedQuantity.equals(wmsTasks.getQuantity())) {
             wmsTasks.setTaskStatus(WarehouseDictEnum.TASK_STATUS_COMPLETED.getCode());
             boolean b = updateById(wmsTasks);
             if(!b){
