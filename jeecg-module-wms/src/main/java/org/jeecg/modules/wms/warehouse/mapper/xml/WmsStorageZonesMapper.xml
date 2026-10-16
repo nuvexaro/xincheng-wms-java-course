@@ -17,5 +17,7 @@
         <if test="warehouseId != null and warehouseId != ''">
             AND a.warehouse_id = #{warehouseId}
         </if>
+        <!-- 新数据排在最前面(原来没有排序, 新建的储区总是排在最后) -->
+        order by a.create_time desc
     </select>
 </mapper>

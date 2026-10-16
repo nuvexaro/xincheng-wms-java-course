@@ -44,4 +44,10 @@ public interface IPickingTasksService  {
      */
     public void completeSorting(List<WmsOutOrdersItems> wmsOutOrdersItemsList);
 
+    /**
+     * 获取拣货路径(课件 10.2.2)
+     * @param waveId 波次id
+     * @return svg代码
+     */
+    public String viewPickPath(String waveId);
 }

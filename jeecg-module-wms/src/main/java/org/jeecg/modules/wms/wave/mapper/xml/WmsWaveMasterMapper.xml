@@ -16,5 +16,7 @@
         <if test="status != null and status !=''">
             and t.status = #{status}
         </if>
+        <!-- 新数据排在最前面(原来没有排序, 新建的波次总是排在最后) -->
+        order by t.create_time desc
     </select>
 </mapper>

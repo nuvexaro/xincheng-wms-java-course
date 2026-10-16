@@ -109,4 +109,13 @@ public class WmsWaveMaster implements Serializable {
     @TableField(exist = false)
     @Schema(description = "仓库名称")
     private String warehouseName;
+
+    /**拣货路径(课件 10.2.2)*/
+    @Schema(description = "拣货路径")
+    private String pickPath;
+
+    /**拣货路径图片: svg 代码(课件 10.2.2)
+     * 没有加课件里的 @Excel: svg 代码很长, 超过 Excel 单元格 32767 个字符的上限时, 波次列表的"导出"会失败*/
+    @Schema(description = "拣货路径图片")
+    private String pickPathImg;
 }

@@ -49,6 +49,8 @@
         <if test="locationCode != null and locationCode != ''">
             AND d.location_code = #{locationCode}
         </if>
+        <!-- 新数据排在最前面(原来没有排序, 新建的库存总是排在最后) -->
+        order by a.create_time desc
 
     </select>
 </mapper>

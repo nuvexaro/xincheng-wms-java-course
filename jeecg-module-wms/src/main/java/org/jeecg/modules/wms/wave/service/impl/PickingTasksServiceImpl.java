@@ -48,6 +48,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
+import org.jeecg.modules.wms.pickroute.MultiProductPickingRouteOptimized;
+import org.jeecg.modules.wms.pickroute.dto.Location;
+import org.jeecg.modules.wms.pickroute.dto.Node;
+import org.jeecg.modules.wms.pickroute.dto.Product;
 
 /**
  * @author Mr.M
@@ -447,5 +452,109 @@ public class PickingTasksServiceImpl implements IPickingTasksService {
 
     }
 
+    /**
+     * 获取拣货路径(课件 10.2.2)
+     * 1.根据波次找到波次拣货明细 2.通过拣货明细找到要拣的商品及储位 3.调用拣货路径规划工具类计算最短拣货路径, 生成路径图
+     * 生成后存到波次表里, 下次查询直接返回, 不用重新计算
+     * @param waveId 波次id
+     * @return svg代码
+     */
+    @Override
+    public String viewPickPath(String waveId){
+        WmsWaveMaster wmsWaveMaster = wmsWaveMasterService.getById(waveId);
+        if (wmsWaveMaster == null) {
+            throw new JeecgBootBizTipException("未找到对应的波次,id:" + waveId);
+        }
+        //如果状态是已创建则不允许查询拣货路径(还没有生成拣货任务和拣货明细)
+        if (WarehouseDictEnum.WAVE_CREATED.getCode().equals(wmsWaveMaster.getStatus())) {
+            throw new JeecgBootBizTipException("波次" + wmsWaveMaster.getWaveNo() + "还没有创建拣货任务, 不允许查询拣货路径");
+        }
+        //如果存在拣货路径图片，则直接返回
+        if (StringUtils.isNotBlank(wmsWaveMaster.getPickPathImg())) {
+            return wmsWaveMaster.getPickPathImg();
+        }
 
+        //根据波次id查询波次拣货明细
+        List<WmsWaveSkuSummary> waveSkuSummaries = wmsWaveSkuSummaryService.selectByWaveId(waveId);
+        if (waveSkuSummaries == null || waveSkuSummaries.isEmpty()) {
+            throw new JeecgBootBizTipException("波次" + wmsWaveMaster.getWaveNo() + "没有拣货明细, 无法规划拣货路径");
+        }
+
+        //起始位置: 仓库左上角的工作站
+        Node startNode = new Node(0, 0);
+
+        //从波次拣货明细中获取商品信息和储位
+        List<Product> products = new ArrayList<>();
+        for (WmsWaveSkuSummary waveSkuSummary : waveSkuSummaries) {
+            WmsProducts wmsProducts = wmsProductsService.getById(waveSkuSummary.getSkuId());
+            //储位编码
+            String locationCode = waveSkuSummary.getLocationCode();
+            //查询储位: 加上仓库条件(不同仓库可能有相同的储位编码, 只按编码查会查出多条而报错)
+            List<WmsStorageLocations> locationList = wmsStorageLocationsService.list(new LambdaQueryWrapper<WmsStorageLocations>()
+                    .eq(WmsStorageLocations::getLocationCode, locationCode)
+                    .eq(StringUtils.isNotBlank(wmsWaveMaster.getWarehouseId()), WmsStorageLocations::getWarehouseId, wmsWaveMaster.getWarehouseId()));
+            if (locationList == null || locationList.isEmpty()) {
+                throw new JeecgBootBizTipException("储位" + locationCode + "不存在, 无法规划拣货路径");
+            }
+            WmsStorageLocations wmsStorageLocations = locationList.get(0);
+            //查询储区
+            WmsStorageZones wmsStorageZones = wmsStorageZonesService.getById(wmsStorageLocations.getZoneId());
+            if (wmsStorageZones == null) {
+                throw new JeecgBootBizTipException("储位" + locationCode + "所属的储区不存在, 无法规划拣货路径");
+            }
+            //仓库模型只有 A、B、C 三个区, 每个区 5 排、6 列(见 pickroute/service/WarehouseLayoutService)
+            //储位的储区名称、排、列不在这个范围内时画不出来, 直接提示是哪个储位的问题
+            String zoneName = wmsStorageZones.getZoneName();
+            int line = parsePositiveInt(wmsStorageLocations.getLocationLine());
+            int rank = parsePositiveInt(wmsStorageLocations.getLocationRank());
+            if (!"A".equals(zoneName) && !"B".equals(zoneName) && !"C".equals(zoneName)) {
+                throw new JeecgBootBizTipException("储位" + locationCode + "所属储区的名称是" + zoneName
+                        + ", 拣货路径的仓库模型只支持储区名称为 A、B、C");
+            }
+            if (line < 1 || line > 5 || rank < 1 || rank > 6) {
+                throw new JeecgBootBizTipException("储位" + locationCode + "的排、列没有填写或超出仓库模型范围(排 1~5, 列 1~6), 无法规划拣货路径");
+            }
+            String productCode = wmsProducts == null ? waveSkuSummary.getSkuId() : wmsProducts.getProductCode();
+            String productName = wmsProducts == null ? "" : wmsProducts.getProductName();
+            products.add(new Product(productCode, productName, new Location(zoneName, line, rank, locationCode)));
+        }
+
+        //计算带商品信息的最优路径
+        MultiProductPickingRouteOptimized.RouteWithProducts routeWithProducts =
+                MultiProductPickingRouteOptimized.calculateOptimalPickingRouteWithProducts(startNode, products);
+        //定义拣货路径string
+        StringBuilder pickPath = new StringBuilder();
+        //生成坐标点数据
+        List<MultiProductPickingRouteOptimized.PointWithInfo> pointsData =
+                MultiProductPickingRouteOptimized.generatePointsData(routeWithProducts, startNode, products);
+        for (MultiProductPickingRouteOptimized.PointWithInfo point : pointsData) {
+            pickPath.append(point.toString());
+            pickPath.append("\n");
+        }
+        //生成图形数据
+        String svgData = MultiProductPickingRouteOptimized.generateSVGData(routeWithProducts, startNode, products);
+
+        //更新拣货路径: 下次查询直接返回
+        WmsWaveMaster wmsWaveMasterUpdate = new WmsWaveMaster();
+        wmsWaveMasterUpdate.setId(waveId);
+        wmsWaveMasterUpdate.setPickPath(pickPath.toString());
+        wmsWaveMasterUpdate.setPickPathImg(svgData);
+        wmsWaveMasterService.updateById(wmsWaveMasterUpdate);
+
+        return svgData;
+    }
+
+    /**
+     * 把储位的排、列(字符串)转成整数, 没填或不是数字时返回 0
+     */
+    private int parsePositiveInt(String value) {
+        if (StringUtils.isBlank(value)) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
 }
