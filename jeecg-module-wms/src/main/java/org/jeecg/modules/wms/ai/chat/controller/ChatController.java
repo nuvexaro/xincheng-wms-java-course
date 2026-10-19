@@ -19,6 +19,9 @@ import org.jeecg.modules.airag.app.entity.AiragApp;
 import org.jeecg.modules.airag.app.service.IAiragAppService;
 import org.jeecg.modules.airag.app.vo.ChatSendParams;
 import org.jeecg.modules.airag.llm.handler.EmbeddingHandler;
+import org.jeecg.modules.wms.ai.chat.tools.WmsInventoryTools;
+import org.jeecg.modules.wms.ai.chat.tools.WmsPickRouteTools;
+import org.jeecg.modules.wms.ai.chat.tools.WmsProductTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
@@ -85,6 +88,18 @@ public class ChatController {
     /** 向量库：PostgreSQL + pgvector（ChatConfiguration 里配置） */
     @Resource(name = "pgVectorStore")
     private VectorStore pgVectorStore;
+
+    /** AI 工具：库存查询 */
+    @Autowired
+    private WmsInventoryTools wmsInventoryTools;
+
+    /** AI 工具：商品查询 */
+    @Autowired
+    private WmsProductTools wmsProductTools;
+
+    /** AI 工具：拣货路径查询 */
+    @Autowired
+    private WmsPickRouteTools wmsPickRouteTools;
 
     /**
      * 3.5 AI助手 v0.3：发送消息（带 System 提示词 + 会话记忆）
@@ -176,6 +191,11 @@ public class ChatController {
                         .build();
                 chat.advisors(new QuestionAnswerAdvisor(pgVectorStore, searchRequest));
             }
+        }
+
+        // 工具调用：只对登录用户挂载，匿名请求不开放库存、商品、波次查询
+        if (!Boolean.TRUE.equals(chatSendParams.getAnonymous())) {
+            chat.tools(wmsInventoryTools, wmsProductTools, wmsPickRouteTools);
         }
 
         // 调用大模型（流式）

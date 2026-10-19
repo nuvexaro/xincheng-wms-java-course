@@ -13,7 +13,8 @@
         d.location_category,
         e.zone_name,
         e.zone_type,
-        f.warehouse_name
+        f.warehouse_name,
+        f.warehouse_code
         FROM wms_inventory a,
         wms_products b,
         wms_cargo_owners c,
