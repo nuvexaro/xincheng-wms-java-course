@@ -221,6 +221,7 @@ public class ShiroConfig {
         registration.addUrlPatterns("/airag/flow/debug");
         registration.addUrlPatterns("/airag/chat/send");
         registration.addUrlPatterns("/airag/app/debug");
+        registration.addUrlPatterns("/ai/*");
         //支持异步
         registration.setAsyncSupported(true);
         registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC);

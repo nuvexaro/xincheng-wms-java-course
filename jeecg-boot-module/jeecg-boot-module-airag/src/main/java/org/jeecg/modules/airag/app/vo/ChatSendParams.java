@@ -46,4 +46,14 @@ public class ChatSendParams {
      */
     private List<String> images;
 
+    /**
+     * 当前用户
+     */
+    private String username;
+
+    /**
+     * 是否匿名会话（未登录时用 sessionId 作为用户名）
+     */
+    private Boolean anonymous;
+
 }

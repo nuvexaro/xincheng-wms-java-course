@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 
 /**
@@ -97,7 +98,7 @@ public class AiragKnowledgeController {
         }
         String oldEmbedId = airagKnowledgeEntity.getEmbedId();
         airagKnowledgeService.updateById(airagKnowledge);
-        if (!oldEmbedId.equalsIgnoreCase(airagKnowledge.getEmbedId())) {
+        if (!Objects.equals(oldEmbedId, airagKnowledge.getEmbedId())) {
             // 更新了模型,重建文档
             airagKnowledgeDocService.rebuildDocumentByKnowId(airagKnowledge.getId());
         }
@@ -132,8 +133,9 @@ public class AiragKnowledgeController {
     @Transactional(rollbackFor = Exception.class)
     @DeleteMapping(value = "/delete")
     public Result<String> delete(@RequestParam(name = "id", required = true) String id) {
-        airagKnowledgeDocService.removeByKnowIds(Collections.singletonList(id));
+        // 先删数据库记录（知识库主表 + 文档表），最后删向量；向量删除失败会让事务整体回滚
         airagKnowledgeService.removeById(id);
+        airagKnowledgeDocService.removeByKnowIds(Collections.singletonList(id));
         return Result.OK("删除成功!");
     }
 
@@ -149,8 +151,9 @@ public class AiragKnowledgeController {
     @DeleteMapping(value = "/deleteBatch")
     public Result<String> deleteBatch(@RequestParam(name = "ids", required = true) String ids) {
         List<String> idsList = Arrays.asList(ids.split(","));
-        airagKnowledgeDocService.removeByKnowIds(idsList);
+        // 先删数据库记录（知识库主表 + 文档表），最后删向量；向量删除失败会让事务整体回滚
         airagKnowledgeService.removeByIds(idsList);
+        airagKnowledgeDocService.removeByKnowIds(idsList);
         return Result.OK("批量删除成功！");
     }
 

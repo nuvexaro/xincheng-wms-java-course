@@ -24,6 +24,19 @@ management:
         include: metrics,httpexchanges,jeecghttptrace
 
 spring:
+  ai:
+    openai:
+      base-url: https://ws-edbc8s3aa4pw0vmy.cn-beijing.maas.aliyuncs.com/compatible-mode
+      api-key: ${ALIYUN_API_KEY}
+      chat:
+        options:
+          model: qwen3.7-flash
+      # ===== 新增：向量模型（4.1）=====
+      embedding:
+        options:
+          model: text-embedding-v4
+          dimensions: 768   # 必须和建表 vector(768)、ChatConfiguration 里的 EMBEDDING_DIMENSIONS 一致
+
   main:
     allow-circular-references: true
   flyway:
@@ -111,6 +124,8 @@ spring:
     exclude:
       - com.alibaba.druid.spring.boot3.autoconfigure.DruidDataSourceAutoConfigure
       - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      # ===== 新增：排除 pgvector 自动配置（4.3），向量库由 ChatConfiguration 手动配置 =====
+      - org.springframework.ai.autoconfigure.vectorstore.pgvector.PgVectorStoreAutoConfiguration
   datasource:
     druid:
       stat-view-servlet:
@@ -161,6 +176,12 @@ spring:
           #username: root
           #password: root
           #driver-class-name: com.mysql.cj.jdbc.Driver
+        # ===== 新增：PostgreSQL 向量库数据源（4.3），名字必须叫 postgresql =====
+        postgresql:
+          url: jdbc:postgresql://127.0.0.1:5432/postgres
+          username: postgres
+          password: postgresql   # 改成你自己装 PG 时设的密码
+          driver-class-name: org.postgresql.Driver
   #redis 配置
   data:
     redis:
@@ -191,8 +212,8 @@ jeecg:
   # AI集成
   ai-chat:
     enabled: true
-    model: deepseek-chat
-    apiKey: ??
+    model: deepseek-flash
+    apiKey: ${DEEPSEEK_API}
     apiHost: https://api.deepseek.com
     timeout: 60
   # AIRag向量库
@@ -226,7 +247,7 @@ jeecg:
     #webapp文件路径
     webapp: /opt/webapp
   shiro:
-    excludeUrls: /test/jeecgDemo/demo3,/test/jeecgDemo/redisDemo/**,/bigscreen/category/**,/bigscreen/visual/**,/bigscreen/map/**,/jmreport/bigscreen2/**
+    excludeUrls: /ai/**,/test/jeecgDemo/demo3,/test/jeecgDemo/redisDemo/**,/bigscreen/category/**,/bigscreen/visual/**,/bigscreen/map/**,/jmreport/bigscreen2/**
   #阿里云oss存储和大鱼短信秘钥配置
   oss:
     accessKey: ??
@@ -291,6 +312,7 @@ cas:
 #Mybatis输出sql日志
 logging:
   level:
+    org.springframework.ai: debug # AI对话的日志级别
     org.springframework.context.support.PostProcessorRegistrationDelegate: error
     org.flywaydb: debug
     org.jeecg.modules.system.mapper: info

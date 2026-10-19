@@ -1,0 +1,130 @@
+// =====================================================================
+// 文件：jeecg-boot-module-airag/.../airag/llm/handler/EmbeddingHandler.java
+// 这不是完整文件！只列出需要你改的地方，按下面 4 步操作。
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// 第 1 步：补充 import（已经有的就不用重复加）
+// ---------------------------------------------------------------------
+import jakarta.annotation.Resource;                                   // 如果原文件用的是 javax.annotation.Resource，就保持一致
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
+
+
+// ---------------------------------------------------------------------
+// 第 2 步：先把原来的两个方法复制一份留作备份，改名：
+//   embeddingDocument  ->  embeddingDocument_old
+//   searchEmbedding    ->  searchEmbedding_old
+// （备份方法保持原样不动，方便你对照；不想留也可以直接删）
+// ---------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------
+// 第 3 步：类里添加向量库字段，并重写 embeddingDocument（4.4 知识库向量化）
+// ---------------------------------------------------------------------
+@Resource(name = "pgVectorStore")
+private VectorStore pgVectorStore;
+
+/** 阿里百炼向量模型单次请求最多处理 10 段文本，所以分批写入 */
+private static final int EMBEDDING_BATCH_SIZE = 10;
+
+public Map<String, Object> embeddingDocument(String knowId, AiragKnowledgeDoc doc) {
+    AiragKnowledge airagKnowledge = airagKnowledgeService.getById(knowId);
+    AssertUtils.assertNotEmpty("知识库不存在", airagKnowledge);
+    AssertUtils.assertNotEmpty("请先为知识库配置向量模型库", airagKnowledge.getEmbedId());
+    AssertUtils.assertNotEmpty("文档不能为空", doc);
+
+    // 1. 解析文档的原始内容
+    String content = doc.getContent();
+    String docId = doc.getId();
+    if (oConvertUtils.isEmpty(content)) {
+        switch (doc.getType()) {
+            case KNOWLEDGE_DOC_TYPE_FILE:
+                // 解析文件
+                if (knowConfigBean.isEnableMinerU()) {
+                    parseFileByMinerU(doc);
+                }
+                content = parseFile(doc);
+                break;
+            case KNOWLEDGE_DOC_TYPE_WEB:
+                // TODO 读取网站内容
+                break;
+        }
+    }
+    // 标题一般是有意义的，也放进向量库
+    if (oConvertUtils.isNotEmpty(doc.getTitle())) {
+        content = doc.getTitle() + "\n\n" + content;
+    }
+
+    // 2. 重新向量化前，先删除这篇文档旧的向量，避免同一篇文档存两份
+    FilterExpressionBuilder b = new FilterExpressionBuilder();
+    Filter.Expression expression = b.eq("docId", docId).build();
+    pgVectorStore.delete(expression);
+
+    // 3. 创建元信息：docId、knowledgeId、docName（检索时靠它们过滤、展示）
+    HashMap<String, Object> metadataMap = new HashMap<>();
+    metadataMap.put(EMBED_STORE_METADATA_DOCID, doc.getId());
+    metadataMap.put(EMBED_STORE_METADATA_KNOWLEDGEID, doc.getKnowledgeId());
+    metadataMap.put(EMBED_STORE_METADATA_DOCNAME, FilenameUtils.getName(doc.getTitle()));
+
+    // 4. 分段：TokenTextSplitter 默认每块约 800 token
+    org.springframework.ai.document.Document springDocument =
+            new org.springframework.ai.document.Document(content, metadataMap);
+    TokenTextSplitter textSplitter = new TokenTextSplitter();
+    List<org.springframework.ai.document.Document> documents = textSplitter.apply(List.of(springDocument));
+
+    // 5. 在每个分段的 metadata 中添加序号 index（从 0 开始），文档名后面加上 (序号)
+    for (int i = 0; i < documents.size(); i++) {
+        Map<String, Object> metadata = documents.get(i).getMetadata();
+        metadata.put("index", i);
+        metadata.put(EMBED_STORE_METADATA_DOCNAME, metadata.get(EMBED_STORE_METADATA_DOCNAME) + "(" + i + ")");
+    }
+
+    // 6. 向量化并存入向量库（add 内部会调用向量模型，一批最多 10 段）
+    for (int i = 0; i < documents.size(); i += EMBEDDING_BATCH_SIZE) {
+        pgVectorStore.add(documents.subList(i, Math.min(i + EMBEDDING_BATCH_SIZE, documents.size())));
+    }
+
+    // 构建返回的元数据
+    return metadataMap;
+}
+
+
+// ---------------------------------------------------------------------
+// 第 4 步：重写 searchEmbedding（4.5 命中测试）
+// ---------------------------------------------------------------------
+public List<Map<String, Object>> searchEmbedding(String knowId, String queryText, Integer topNumber, Double similarity) {
+    AssertUtils.assertNotEmpty("请选择知识库", knowId);
+    AiragKnowledge knowledge = airagKnowledgeService.getById(knowId);
+    AssertUtils.assertNotEmpty("知识库不存在", knowledge);
+    AssertUtils.assertNotEmpty("请填写查询内容", queryText);
+
+    // 只在当前知识库里检索
+    FilterExpressionBuilder b = new FilterExpressionBuilder();
+    Filter.Expression expression = b.eq("knowledgeId", knowId).build();
+
+    SearchRequest request = SearchRequest.builder()
+            .query(queryText)                    // 搜索内容（内部会自动用向量模型转成向量）
+            .filterExpression(expression)        // 过滤器
+            .topK(topNumber)                     // 最多返回几条
+            .similarityThreshold(similarity)     // 相似度(score)低于该值的不返回，越大越严格
+            .build();
+    List<org.springframework.ai.document.Document> documents = pgVectorStore.similaritySearch(request);
+
+    List<Map<String, Object>> result = new ArrayList<>();
+    if (oConvertUtils.isObjectNotEmpty(documents)) {
+        result = documents.stream().map(matchRes -> {
+            Map<String, Object> data = new HashMap<>();
+            data.put("score", matchRes.getScore());       // 相似度，越大越像
+            data.put("content", matchRes.getText());
+            Map<String, Object> metadata = matchRes.getMetadata();
+            data.put("chunk", metadata.get("index"));
+            data.put(EMBED_STORE_METADATA_DOCNAME, metadata.get(EMBED_STORE_METADATA_DOCNAME));
+            return data;
+        }).collect(Collectors.toList());
+    }
+    return result;
+}

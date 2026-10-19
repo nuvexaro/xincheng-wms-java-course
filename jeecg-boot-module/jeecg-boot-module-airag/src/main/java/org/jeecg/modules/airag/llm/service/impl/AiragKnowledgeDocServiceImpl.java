@@ -149,9 +149,6 @@ public class AiragKnowledgeDocServiceImpl extends ServiceImpl<AiragKnowledgeDocM
         if (oConvertUtils.isObjectEmpty(knowledgeDocs)) {
             return Result.ok("操作成功");
         }
-        if (oConvertUtils.isObjectEmpty(knowledgeDocs)) {
-            return Result.ok("操作成功");
-        }
         // 更新状态
         this.updateBatchById(knowledgeDocs);
         // 异步重建文档
@@ -191,20 +188,21 @@ public class AiragKnowledgeDocServiceImpl extends ServiceImpl<AiragKnowledgeDocM
     }
 
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public Result<?> removeByKnowIds(List<String> knowIds) {
         AssertUtils.assertNotEmpty("选择知识库", knowIds);
+        // 知识库主表由 Controller 在调用本方法前删除；这里只负责文档表和向量
+        // 先删除数据库记录；向量删除失败时抛异常，让事务回滚数据库删除
         for (String knowId : knowIds) {
-            AiragKnowledge airagKnowledge = airagKnowledgeMapper.selectById(knowId);
-            AssertUtils.assertNotEmpty("知识库不存在", airagKnowledge);
-            AssertUtils.assertNotEmpty("请先为知识库配置向量模型库", airagKnowledge.getEmbedId());
-            // 删除数据
-            embeddingHandler.deleteEmbedDocsByKnowId(knowId, airagKnowledge.getEmbedId());
             airagKnowledgeDocMapper.deleteByMainId(knowId);
         }
+        // 最后删除向量（单条 SQL，失败时不会只删掉一部分）
+        embeddingHandler.deleteEmbedDocsByKnowIds(knowIds);
         return Result.OK();
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public Result<?> removeDocByIds(List<String> docIds) {
         AssertUtils.assertNotEmpty("请选择要删除的文档", docIds);
@@ -219,14 +217,15 @@ public class AiragKnowledgeDocServiceImpl extends ServiceImpl<AiragKnowledgeDocM
         if (oConvertUtils.isObjectEmpty(knowledgeDocs)) {
             return Result.ok("success");
         }
-        knowledgeDocs.forEach((knowId, groupedDocIds) -> {
+        // 先校验所有知识库，避免删到一半才发现数据异常
+        knowledgeDocs.keySet().forEach(knowId -> {
             AiragKnowledge airagKnowledge = airagKnowledgeMapper.selectById(knowId);
             AssertUtils.assertNotEmpty("知识库不存在", airagKnowledge);
-            AssertUtils.assertNotEmpty("请先为知识库配置向量模型库", airagKnowledge.getEmbedId());
-            // 删除数据
-            embeddingHandler.deleteEmbedDocsByDocIds(groupedDocIds, airagKnowledge.getEmbedId());
-            airagKnowledgeDocMapper.deleteBatchIds(groupedDocIds);
         });
+        // 先删除数据库记录；向量删除失败时抛异常，让事务回滚数据库删除
+        airagKnowledgeDocMapper.deleteBatchIds(docIds);
+        // 最后删除向量（单条 SQL，失败时不会只删掉一部分）
+        embeddingHandler.deleteEmbedDocsByDocIds(docIds);
         return Result.ok("success");
     }
 
@@ -283,6 +282,10 @@ public class AiragKnowledgeDocServiceImpl extends ServiceImpl<AiragKnowledgeDocM
                 doc.setMetadata(metadata.toJSONString());
                 docList.add(doc);
             });
+            // 压缩包里没有受支持的文档时直接返回提示，避免调用 rebuildDocument("")
+            if (oConvertUtils.isObjectEmpty(docList)) {
+                return Result.error("压缩包中没有可导入的文档");
+            }
             // 保存数据
             this.saveBatch(docList);
             // 重建文档

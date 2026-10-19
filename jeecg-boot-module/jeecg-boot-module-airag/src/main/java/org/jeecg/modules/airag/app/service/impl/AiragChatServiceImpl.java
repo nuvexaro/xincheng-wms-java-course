@@ -87,6 +87,7 @@ public class AiragChatServiceImpl implements IAiragChatService {
         if (oConvertUtils.isNotEmpty(chatSendParams.getAppId())) {
             app = airagAppService.getById(chatSendParams.getAppId());
         }
+        // 从redis获取会话信息,目的是向AI发送消息带上历史消息内容
         ChatConversation chatConversation = getOrCreateChatConversation(app, conversationId);
         // 更新标题
         if (oConvertUtils.isEmpty(chatConversation.getTitle())) {
@@ -137,7 +138,7 @@ public class AiragChatServiceImpl implements IAiragChatService {
      * @author chenrui
      * @date 2025/2/27 15:56
      */
-    private static void closeSSE(SseEmitter emitter, EventData eventData) {
+    public static void closeSSE(SseEmitter emitter, EventData eventData) {
         AssertUtils.assertNotEmpty("请求id不能为空", eventData);
         if (null == emitter) {
             log.warn("会话已关闭");
@@ -243,7 +244,7 @@ public class AiragChatServiceImpl implements IAiragChatService {
         String key = getConversationCacheKey(conversationId, null);
         if (oConvertUtils.isNotEmpty(key)) {
             Boolean delete = redisTemplate.delete(key);
-            if (delete) {
+            if (Boolean.TRUE.equals(delete)) {
                 return Result.ok();
             } else {
                 return Result.error("删除会话失败");
@@ -260,10 +261,14 @@ public class AiragChatServiceImpl implements IAiragChatService {
         AssertUtils.assertNotEmpty("请输入会话标题", updateTitleParams.getTitle());
         String key = getConversationCacheKey(updateTitleParams.getId(), null);
         if (oConvertUtils.isEmpty(key)) {
-            log.warn("[ai-chat]删除会话:未找到会话:{}", updateTitleParams.getId());
+            log.warn("[ai-chat]修改会话标题:未找到会话:{}", updateTitleParams.getId());
             return Result.ok();
         }
         ChatConversation chatConversation = (ChatConversation) redisTemplate.boundValueOps(key).get();
+        if (null == chatConversation) {
+            log.warn("[ai-chat]修改会话标题:未找到会话:{}", updateTitleParams.getId());
+            return Result.ok();
+        }
         chatConversation.setTitle(updateTitleParams.getTitle());
         saveChatConversation(chatConversation);
         return Result.ok();
@@ -322,7 +327,8 @@ public class AiragChatServiceImpl implements IAiragChatService {
      * @date 2025/2/25 19:19
      */
     @NotNull
-    private ChatConversation getOrCreateChatConversation(AiragApp app, String conversationId) {
+    @Override
+    public ChatConversation getOrCreateChatConversation(AiragApp app, String conversationId) {
         if (oConvertUtils.isObjectEmpty(app)) {
             app = new AiragApp();
             app.setId(AiAppConsts.DEFAULT_APP_ID);
@@ -376,7 +382,8 @@ public class AiragChatServiceImpl implements IAiragChatService {
      * @author chenrui
      * @date 2025/2/25 19:27
      */
-    private void saveChatConversation(ChatConversation chatConversation, boolean temp,HttpServletRequest httpRequest) {
+    @Override
+    public void saveChatConversation(ChatConversation chatConversation, boolean temp, HttpServletRequest httpRequest) {
         if (null == chatConversation) {
             return;
         }
@@ -385,9 +392,14 @@ public class AiragChatServiceImpl implements IAiragChatService {
             return;
         }
         BoundValueOperations chatRedisCacheOp = redisTemplate.boundValueOps(key);
+        // set 会清除 key 上原有的过期时间。debug 临时会话（3 小时）
+        // 在后续非临时保存时要把 TTL 恢复回来，否则临时会话会变成永不过期。
+        Long existingTtl = chatRedisCacheOp.getExpire();
         chatRedisCacheOp.set(chatConversation);
         if (temp) {
             chatRedisCacheOp.expire(3, TimeUnit.HOURS);
+        } else if (existingTtl != null && existingTtl > 0) {
+            chatRedisCacheOp.expire(existingTtl, TimeUnit.SECONDS);
         }
     }
 
@@ -400,7 +412,8 @@ public class AiragChatServiceImpl implements IAiragChatService {
      * @author chenrui
      * @date 2025/2/25 15:26
      */
-    private List<ChatMessage> collateMessage(ChatConversation conversation, String topicId) {
+    @Override
+    public List<ChatMessage> collateMessage(ChatConversation conversation, String topicId) {
         List<MessageHistory> messagesHistory = conversation.getMessages();
         if (oConvertUtils.isObjectEmpty(messagesHistory)) {
             return new LinkedList<>();
@@ -408,7 +421,7 @@ public class AiragChatServiceImpl implements IAiragChatService {
         LinkedList<ChatMessage> chatMessages = new LinkedList<>();
         for (int i = messagesHistory.size() - 1; i >= 0; i--) {
             MessageHistory history = messagesHistory.get(i);
-            if (topicId.equals(history.getTopicId())) {
+            if (Objects.equals(topicId, history.getTopicId())) {
                 ChatMessage chatMessage = null;
                 switch (history.getRole()) {
                     case AiragConsts.MESSAGE_ROLE_USER:
@@ -452,10 +465,11 @@ public class AiragChatServiceImpl implements IAiragChatService {
      * @author chenrui
      * @date 2025/2/25 19:05
      */
-    private void appendMessage(List<ChatMessage> messages, ChatMessage message, ChatConversation
+    @Override
+    public void appendMessage(List<ChatMessage> messages, ChatMessage message, ChatConversation
             chatConversation, String topicId) {
-
-        if (message.type().equals(ChatMessageType.SYSTEM)) {
+//        if (message.type().equals(ChatMessageType.SYSTEM)) {
+        if (message instanceof SystemMessage) {
             // 系统消息,放到消息列表最前面,并且不记录历史
             messages.add(0, message);
             return;
@@ -472,24 +486,28 @@ public class AiragChatServiceImpl implements IAiragChatService {
                 .topicId(topicId)
                 .datetime(DateUtils.now())
                 .build();
-        if (message.type().equals(ChatMessageType.USER)) {
+//        if (message.type().equals(ChatMessageType.USER)) {
+        if (message instanceof UserMessage) {
             historyMessage.setRole(AiragConsts.MESSAGE_ROLE_USER);
             StringBuilder textContent = new StringBuilder();
             List<MessageHistory.ImageHistory> images = new ArrayList<>();
             List<Content> contents = ((UserMessage) message).contents();
             contents.forEach(content -> {
-                if (content.type().equals(ContentType.IMAGE)) {
+//                if (content.type().equals(ContentType.IMAGE)) {
+                if (content instanceof ImageContent) {
                     ImageContent imageContent = (ImageContent) content;
                     Image image = imageContent.image();
                     MessageHistory.ImageHistory imageMessage = MessageHistory.ImageHistory.from(image.url(), image.base64Data(), image.mimeType());
                     images.add(imageMessage);
-                } else if (content.type().equals(ContentType.TEXT)) {
+//                } else if (content.type().equals(ContentType.TEXT)) {
+                } else if (content instanceof TextContent) {
                     textContent.append(((TextContent) content).text()).append("\n");
                 }
             });
             historyMessage.setContent(textContent.toString());
             historyMessage.setImages(images);
-        } else if (message.type().equals(ChatMessageType.AI)) {
+//        } else if (message.type().equals(ChatMessageType.AI)) {
+        } else if (message instanceof AiMessage) {
             historyMessage.setRole(AiragConsts.MESSAGE_ROLE_AI);
             historyMessage.setContent(((AiMessage) message).text());
         }
@@ -654,16 +672,16 @@ public class AiragChatServiceImpl implements IAiragChatService {
                     aiChatParams.setTemperature(metadata.getDouble("temperature"));
                 }
                 if (metadata.containsKey("topP")) {
-                    aiChatParams.setTopP(metadata.getDouble("temperature"));
+                    aiChatParams.setTopP(metadata.getDouble("topP"));
                 }
                 if (metadata.containsKey("presencePenalty")) {
-                    aiChatParams.setPresencePenalty(metadata.getDouble("temperature"));
+                    aiChatParams.setPresencePenalty(metadata.getDouble("presencePenalty"));
                 }
                 if (metadata.containsKey("frequencyPenalty")) {
-                    aiChatParams.setFrequencyPenalty(metadata.getDouble("temperature"));
+                    aiChatParams.setFrequencyPenalty(metadata.getDouble("frequencyPenalty"));
                 }
                 if (metadata.containsKey("maxTokens")) {
-                    aiChatParams.setMaxTokens(metadata.getInteger("temperature"));
+                    aiChatParams.setMaxTokens(metadata.getInteger("maxTokens"));
                 }
             }
         }
@@ -772,7 +790,7 @@ public class AiragChatServiceImpl implements IAiragChatService {
                     } else {
                         // 异常结束
                         log.error("调用模型异常:" + respText);
-                        if (respText.contains("insufficient Balance")) {
+                        if (null != respText && respText.contains("insufficient Balance")) {
                             respText = "大预言模型账号余额不足!";
                         }
                         EventData eventData = new EventData(requestId, null, EventData.EVENT_FLOW_ERROR, chatConversation.getId(), topicId);
@@ -883,7 +901,6 @@ public class AiragChatServiceImpl implements IAiragChatService {
      */
     private String getUsername(HttpServletRequest httpRequest) {
         try {
-            TokenUtils.getTokenByRequest();
             String token;
             if(null != httpRequest){
                 token = TokenUtils.getTokenByRequest(httpRequest);

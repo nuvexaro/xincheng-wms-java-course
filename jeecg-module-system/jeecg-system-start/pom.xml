@@ -24,6 +24,13 @@
             <artifactId>jeecg-module-demo</artifactId>
             <version>${jeecgboot.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.jeecgframework.boot</groupId>
+            <artifactId>jeecg-boot-module-airag</artifactId>
+            <version>${jeecgboot.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.jeecgframework.boot</groupId>
             <artifactId>jeecg-module-wms</artifactId>
@@ -46,6 +53,7 @@
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
         </dependency>
+
     </dependencies>
 
     <build>
